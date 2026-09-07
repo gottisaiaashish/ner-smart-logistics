@@ -45,13 +45,25 @@ export function renderNavbar(container, activeTab = 'dashboard') {
           </div>
         </div>
 
-        <!-- Current Authenticated Role Badge -->
-        <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-command-950 border border-command-border text-xs font-mono">
-          <span class="w-2 h-2 rounded-full ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-400' : currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-400' : currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-400' : 'bg-purple-400'} animate-pulse"></span>
-          <span class="text-slate-400 uppercase text-[10px]">Active Session:</span>
-          <span class="text-white font-bold text-xs">${currentUser?.name || currentUser?.role?.replace('_', ' ')}</span>
-        </div>
-
+        <!-- Portal Quick-Switch Navigation Tabs -->
+        <nav class="hidden lg:flex items-center gap-1.5 bg-command-950 p-1 rounded-xl border border-command-border text-xs font-mono">
+          <a href="#/control-room" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Control Room Portal">
+            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-400' : 'bg-slate-600'}"></span>
+            Control Room
+          </a>
+          <a href="#/driver" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Driver Cockpit HUD">
+            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
+            Driver HUD
+          </a>
+          <a href="#/point-launch" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Point & Launch Portal">
+            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-400' : 'bg-slate-600'}"></span>
+            Point & Launch
+          </a>
+          <a href="#/field-officer" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Field Officer Portal">
+            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-400' : 'bg-slate-600'}"></span>
+            Field Officer
+          </a>
+        </nav>
       </div>
 
       <!-- Center: Global System Status Bar -->
@@ -145,6 +157,11 @@ export function renderNavbar(container, activeTab = 'dashboard') {
     updateClock();
     setInterval(updateClock, 1000);
   }
+
+  // Home Brand link
+  container.querySelector('#btn-brand-home')?.addEventListener('click', () => {
+    window.location.hash = '#/login';
+  });
 
   // Sound Toggle
   container.querySelector('#btn-toggle-sound')?.addEventListener('click', () => {
