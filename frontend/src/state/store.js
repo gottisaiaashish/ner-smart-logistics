@@ -294,6 +294,21 @@ class Store {
           if (!parsed.customMissions) {
             parsed.customMissions = [];
           }
+          // Sanitize & fix vehicle IDs and remove broken 'undefined' entries
+          if (parsed.vehicles) {
+            parsed.vehicles = parsed.vehicles
+              .filter(v => v && v.id !== 'undefined' && v.vehicleId !== 'undefined')
+              .map((v, idx) => {
+                const vid = v.id || v.vehicleId || `TRUCK-${String(idx + 1).padStart(2, '0')}`;
+                return {
+                  ...v,
+                  id: vid,
+                  vehicleId: vid,
+                  name: vid,
+                  priority: v.priority || v.cargoPriority || 'CRITICAL'
+                };
+              });
+          }
           return parsed;
         }
       } catch (e) {
@@ -769,13 +784,17 @@ class Store {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const newDispatch = {
-      portCode,
+      id: vehicleId,
       vehicleId,
+      name: vehicleId,
+      portCode,
       vehicleNumber: data.vehicleNumber || `AS-01-EE-${portNum}`,
       driverName: data.driverName || 'Designated Fleet Driver',
       driverPhone: data.driverPhone || '+91 98640-' + portNum,
       vehicleType: data.vehicleType || 'Refrigerated 4x4 Heavy Logistics Unit',
       cargo: data.cargo || 'Essential Vaccines & Cold-Chain Blood Units',
+      cargoType: data.vehicleType || 'Refrigerated 4x4',
+      priority: data.priority || 'CRITICAL',
       cargoPriority: data.priority || 'CRITICAL',
       origin: data.origin || 'Khanapara Checkpost Hub, Guwahati',
       destination: data.destination || 'District Civil Hospital, Silchar',
@@ -819,6 +838,20 @@ class Store {
 
     this.notify();
     return newDispatch;
+  }
+
+  // Delete / Remove Vehicle from Fleet Tracking
+  deleteVehicle(vehicleId) {
+    if (!vehicleId) return;
+    this.state.vehicles = this.state.vehicles.filter(v => v.id !== vehicleId && v.vehicleId !== vehicleId);
+    if (this.state.dispatches) {
+      this.state.dispatches = this.state.dispatches.filter(d => d.vehicleId !== vehicleId && d.portCode !== vehicleId && d.id !== vehicleId);
+    }
+    // Also remove any remaining invalid entries
+    this.state.vehicles = this.state.vehicles.filter(v => v && v.id && v.id !== 'undefined');
+    
+    socketClient.send('DELETE_VEHICLE', { vehicleId });
+    this.notify();
   }
 
   logout() {

@@ -352,24 +352,31 @@ export function renderControlRoomView(appContainer) {
 
           <div class="space-y-2">
             ${vehicles.map(v => {
-              const isCrit = v.riskLevel === 'CRITICAL';
+              const vid = v.id || v.vehicleId || 'TRUCK-01';
+              const priority = v.priority || v.cargoPriority || 'CRITICAL';
+              const isCrit = v.riskLevel === 'CRITICAL' || priority === 'CRITICAL';
               const isReroute = v.status === 'REROUTED';
-              const statusBadge = isCrit ? 'text-rose-400 border-rose-500/50 bg-rose-950/40' : isReroute ? 'text-emerald-400 border-emerald-500/50 bg-emerald-950/40' : 'text-cyan-300 border-cyan-500/50 bg-cyan-950/40';
+              const statusBadge = isReroute ? 'text-emerald-400 border-emerald-500/50 bg-emerald-950/40' : isCrit ? 'text-rose-400 border-rose-500/50 bg-rose-950/40' : 'text-cyan-300 border-cyan-500/50 bg-cyan-950/40';
 
               return `
-                <div class="btn-vehicle-card p-3 rounded-lg bg-command-850 hover:bg-command-800 border border-command-border cursor-pointer transition flex items-center justify-between" data-vid="${v.id}">
-                  <div class="space-y-1">
+                <div class="btn-vehicle-card p-3 rounded-lg bg-command-850 hover:bg-command-800 border border-command-border cursor-pointer transition flex items-center justify-between group" data-vid="${vid}">
+                  <div class="space-y-1 flex-1 min-w-0 pr-3">
                     <div class="flex items-center gap-2">
-                      <span class="font-mono font-bold text-white text-xs">${v.id}</span>
-                      <span class="text-[10px] font-mono px-1.5 py-0.2 rounded border ${statusBadge}">${v.status}</span>
-                      <span class="text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${v.priority === 'CRITICAL' ? 'bg-rose-950 text-rose-300 border border-rose-600' : 'bg-slate-800 text-cyan-300'}">${v.priority}</span>
+                      <span class="font-mono font-bold text-white text-xs">${vid}</span>
+                      <span class="text-[10px] font-mono px-1.5 py-0.2 rounded border ${statusBadge}">${v.status || 'IN_TRANSIT'}</span>
+                      <span class="text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${priority === 'CRITICAL' ? 'bg-rose-950 text-rose-300 border border-rose-600' : 'bg-slate-800 text-cyan-300'}">${priority}</span>
                     </div>
-                    <div class="text-xs text-slate-300">${v.cargo}</div>
-                    <div class="text-[11px] text-slate-400 font-mono">${v.currentLocationName}</div>
+                    <div class="text-xs text-slate-300 truncate">${v.cargo || 'Medical Rations & Supplies'}</div>
+                    <div class="text-[11px] text-slate-400 font-mono truncate">${v.currentLocationName || v.origin || 'Khanapara Staging Hub'}</div>
                   </div>
-                  <div class="text-right font-mono">
-                    <div class="text-xs font-bold text-cyan-400">${v.speed} km/h</div>
-                    <div class="text-[11px] text-emerald-400">ETA ${v.eta}</div>
+                  <div class="flex items-center gap-3 shrink-0">
+                    <div class="text-right font-mono">
+                      <div class="text-xs font-bold text-cyan-400">${v.speed || 48} km/h</div>
+                      <div class="text-[11px] text-emerald-400">ETA ${v.eta || '4h 15m'}</div>
+                    </div>
+                    <button class="btn-delete-vehicle p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/80 text-rose-400 hover:text-rose-200 border border-rose-800/50 transition opacity-80 hover:opacity-100" data-del-vid="${vid}" title="Delete / Decommission Vehicle ${vid}">
+                      <span class="text-xs font-mono font-bold">✕</span>
+                    </button>
                   </div>
                 </div>
               `;
@@ -461,6 +468,18 @@ export function renderControlRoomView(appContainer) {
         setTimeout(() => {
           sounds.speakDispatch(txt);
         }, 150);
+      });
+    });
+
+    // Delete vehicle handler
+    appContainer.querySelectorAll('.btn-delete-vehicle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vid = e.currentTarget.getAttribute('data-del-vid');
+        if (confirm(`Are you sure you want to delete / remove unit ${vid} from Fleet Tracking?`)) {
+          sounds.playSuccess();
+          store.deleteVehicle(vid);
+        }
       });
     });
 

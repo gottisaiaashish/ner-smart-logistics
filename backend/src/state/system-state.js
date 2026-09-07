@@ -115,13 +115,17 @@ class SystemState {
     const vehicleId = `TRUCK-${portNumber.toString().slice(-2)}`;
 
     const newDispatch = {
-      portCode,
+      id: vehicleId,
       vehicleId,
+      name: vehicleId,
+      portCode,
       vehicleNumber: dispatchData.vehicleNumber || `AS-01-EE-${portNumber}`,
       driverName: dispatchData.driverName || 'Designated Fleet Driver',
       driverPhone: dispatchData.driverPhone || '+91 98640-' + portNumber,
       vehicleType: dispatchData.vehicleType || 'Refrigerated 4x4 Heavy Unit',
       cargo: dispatchData.cargo || 'Cold-Chain Critical Relief Units',
+      cargoType: dispatchData.vehicleType || 'Refrigerated 4x4 Heavy Unit',
+      priority: dispatchData.priority || 'CRITICAL',
       cargoPriority: dispatchData.priority || 'CRITICAL',
       origin: dispatchData.origin || 'Khanapara Checkpost Hub, Guwahati',
       destination: dispatchData.destination || 'District Civil Hospital, Silchar',
@@ -151,6 +155,12 @@ class SystemState {
     });
 
     return { dispatch: newDispatch, state: this.getState() };
+  }
+
+  deleteVehicle(vehicleId) {
+    this.vehicles = this.vehicles.filter(v => v.id !== vehicleId && v.vehicleId !== vehicleId);
+    this.dispatches = this.dispatches.filter(d => d.vehicleId !== vehicleId && d.portCode !== vehicleId && d.id !== vehicleId);
+    return this.getState();
   }
 
   getDispatchByPort(portCode) {

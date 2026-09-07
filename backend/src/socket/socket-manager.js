@@ -76,6 +76,9 @@ class SocketManager {
       case 'ACCEPT_REROUTE':
         updatedState = systemState.acceptReroute(payload.vehicleId);
         break;
+      case 'DELETE_VEHICLE':
+        updatedState = systemState.deleteVehicle(payload.vehicleId);
+        break;
       default:
         console.warn(`[WebSocket] Unhandled action: ${action}`);
         break;
