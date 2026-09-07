@@ -273,15 +273,13 @@ class Store {
       }
     }
     if (serverState.vehicles && Array.isArray(serverState.vehicles)) {
-      serverState.vehicles.forEach(sv => {
-        const targetId = sv.id || sv.vehicleId;
-        const idx = this.state.vehicles.findIndex(v => (v.id && v.id === targetId) || (v.vehicleId && v.vehicleId === targetId) || (v.portCode && sv.portCode && v.portCode === sv.portCode));
-        if (idx !== -1) {
-          this.state.vehicles[idx] = { ...this.state.vehicles[idx], ...sv };
-        } else {
-          this.state.vehicles.unshift(sv);
+      this.state.vehicles = serverState.vehicles;
+      if (this.state.vehicles.length > 0) {
+        const active = this.state.vehicles.find(v => v.id === this.state.driverContext.activeVehicleId || v.vehicleId === this.state.driverContext.activeVehicleId || v.portCode === this.state.driverContext.activeVehicleId);
+        if (!active) {
+          this.state.driverContext.activeVehicleId = this.state.vehicles[0].id || this.state.vehicles[0].vehicleId || this.state.vehicles[0].portCode;
         }
-      });
+      }
     }
     this.recalculateAIEngine();
     this.notify();
@@ -1270,62 +1268,114 @@ class Store {
     return newMission;
   }
 
+  getDenseWaypoints(routeType) {
+    if (routeType === 'ROUTE_B') {
+      return [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Central Depot' },
+        { coords: [26.1150, 91.8420], name: 'Khanapara East Gate' },
+        { coords: [26.1620, 91.9540], name: 'Sonapur Assam Highway' },
+        { coords: [26.1820, 92.0540], name: 'Jagiroad Paper Mill Crossing' },
+        { coords: [26.2450, 92.2150], name: 'Dharamtul Highway Sector' },
+        { coords: [26.2950, 92.3920], name: 'Raha Toll Plaza' },
+        { coords: [26.3450, 92.6840], name: 'Nagaon Central Bypass' },
+        { coords: [26.2420, 92.8650], name: 'Kathiatoli Junction' },
+        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+        { coords: [26.0120, 93.0950], name: 'Hojai Agriculture Belt' },
+        { coords: [25.8920, 93.1350], name: 'Lanka Rail Crossing' },
+        { coords: [25.7510, 93.1750], name: 'Lumding Junction Ridge' },
+        { coords: [25.6350, 93.1420], name: 'Langting Hill Pass' },
+        { coords: [25.5420, 93.0850], name: 'Hatikhali Causeway' },
+        { coords: [25.4850, 93.0250], name: 'Mahur Reinforced Bridge' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley' },
+        { coords: [25.3250, 92.9120], name: 'Gunjung Mountain Pass' },
+        { coords: [25.2420, 92.8540], name: 'Jatinga Cloud Valley' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Valley Bridge' },
+        { coords: [25.0850, 92.7950], name: 'Ditokcherra Reinforced Tunnel' },
+        { coords: [25.0120, 92.7820], name: 'Bandarkhal Causeway' },
+        { coords: [24.9450, 92.7750], name: 'Damcherra Approach' },
+        { coords: [24.8850, 92.7680], name: 'Silchar North Gate' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
+      ];
+    }
+
+    if (routeType === 'ROUTE_B_DIVERSION' || routeType === 'REROUTED') {
+      return [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
+        { coords: [26.0820, 91.8020], name: 'Khanapara Gate' },
+        { coords: [26.0120, 91.8450], name: 'Jorabat Mountain Incline' },
+        { coords: [25.9610, 91.8845], name: 'Nongpoh Valley Sector' },
+        { coords: [25.8850, 91.8720], name: 'Umling Highway Rest Stop' },
+        { coords: [25.7920, 91.8890], name: 'Umsning Expressway Node' },
+        { coords: [25.6840, 91.9020], name: 'Umiam Lake Bridge' },
+        { coords: [25.6120, 91.8950], name: 'Mawlai North Gate' },
+        { coords: [25.5788, 91.8933], name: 'Shillong Central Hub' },
+        { coords: [25.5420, 91.9650], name: 'Laitkor Peak' },
+        { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
+        { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
+        { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
+        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
+        { coords: [25.5150, 92.3120], name: 'Nartiang Monolith Pass' },
+        { coords: [25.5850, 92.4850], name: 'Khanduli Border Post' },
+        { coords: [25.5420, 92.6850], name: 'Sahsniang Ridge Link' },
+        { coords: [25.4850, 92.8420], name: 'Kopili Dam Reservoir Causeway' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley (Basalt Formation)' },
+        { coords: [25.3250, 92.9120], name: 'Gunjung Mountain Pass' },
+        { coords: [25.2420, 92.8540], name: 'Jatinga Valley Safe Bypass' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Valley Bridge' },
+        { coords: [25.0850, 92.7950], name: 'Ditokcherra Tunnel Node' },
+        { coords: [24.9450, 92.7750], name: 'Damcherra Approach' },
+        { coords: [24.8850, 92.7680], name: 'Silchar North Gate' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
+      ];
+    }
+
+    // Default: Dense Route A Waypoints
+    return [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Central Depot' },
+      { coords: [26.0820, 91.8020], name: 'Khanapara Gate' },
+      { coords: [26.0120, 91.8450], name: 'Jorabat Mountain Incline' },
+      { coords: [25.9610, 91.8845], name: 'Nongpoh Valley Sector' },
+      { coords: [25.8850, 91.8720], name: 'Umling Highway Rest Stop' },
+      { coords: [25.7920, 91.8890], name: 'Umsning Expressway Node' },
+      { coords: [25.6840, 91.9020], name: 'Umiam Lake Bridge' },
+      { coords: [25.6120, 91.8950], name: 'Mawlai North Gate' },
+      { coords: [25.5788, 91.8933], name: 'Shillong Central Hub' },
+      { coords: [25.5420, 91.9650], name: 'Laitkor Peak' },
+      { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
+      { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
+      { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
+      { coords: [25.4520, 92.2030], name: 'Jowai Chokepoint (SH-6 Junction)' },
+      { coords: [25.3620, 92.2780], name: 'Ladrymbai Coal Belt' },
+      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+      { coords: [25.1480, 92.3720], name: 'Lumshnong Limestone Pass' },
+      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel (High Landslide Hotspot)' },
+      { coords: [25.0450, 92.4420], name: 'Malidhar Border Post' },
+      { coords: [24.9950, 92.4980], name: 'Gumra Valley' },
+      { coords: [24.9750, 92.5420], name: 'Kalain Causeway' },
+      { coords: [24.9250, 92.6250], name: 'Bhaga Interchange' },
+      { coords: [24.8720, 92.7120], name: 'Silchar North Outskirts' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
+    ];
+  }
+
   // Advance Vehicle Along Assigned Route Waypoints (Drive Forward)
   advanceVehicle(vehicleId = 'TRUCK-07') {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (!vehicle) return;
 
-    // Determine path based on assigned route and reroute status
-    let waypoints = [];
-    if (vehicle.status === 'REROUTED' || vehicle.assignedRoute === 'ROUTE_B_DIVERSION') {
-      // Mid-route diversion via Jowai-Umrangso connector onto Route B
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
-        { coords: [25.9610, 91.8845], name: 'Nongpoh Checkpoint' },
-        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
-        { coords: [25.5680, 92.4200], name: 'Nartiang Monolith Pass' },
-        { coords: [25.6400, 92.6800], name: 'Khanduli Ridge Connector' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass (Route B)' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    } else if (vehicle.assignedRoute === 'ROUTE_B') {
-      // Standard Route B through Assam valley
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
-        { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
-        { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
-        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
-        { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    } else {
-      // Primary Route A
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
-        { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
-        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
-        { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
-        { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
-        { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    }
+    const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
 
     let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
     let nextIdx = curIdx + 1;
-    if (nextIdx >= waypoints.length) nextIdx = 0;
+    if (nextIdx >= waypoints.length) nextIdx = waypoints.length - 1;
 
     vehicle.currentWaypointIdx = nextIdx;
     vehicle.coordinates = [...waypoints[nextIdx].coords];
     vehicle.currentLocationName = waypoints[nextIdx].name;
     vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
-    vehicle.speed = Math.floor(46 + Math.random() * 12);
-    vehicle.eta = `${Math.max(1, waypoints.length - nextIdx)}h ${Math.floor(10 + Math.random() * 40)}m`;
+    vehicle.speed = Math.floor(48 + Math.random() * 8);
+    const remMinutes = Math.max(15, Math.round((waypoints.length - 1 - nextIdx) * 18));
+    vehicle.eta = `${Math.floor(remMinutes / 60)}h ${remMinutes % 60}m`;
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -1346,52 +1396,7 @@ class Store {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (!vehicle) return;
 
-    let waypoints = [];
-    if (vehicle.status === 'REROUTED' || vehicle.assignedRoute === 'ROUTE_B_DIVERSION') {
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
-        { coords: [25.9610, 91.8845], name: 'Nongpoh Checkpoint' },
-        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
-        { coords: [25.5680, 92.4200], name: 'Nartiang Monolith Pass' },
-        { coords: [25.6400, 92.6800], name: 'Khanduli Ridge Connector' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass (Route B)' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    } else if (vehicle.assignedRoute === 'ROUTE_C') {
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Base' },
-        { coords: [26.4500, 92.4000], name: 'Morigaon North' },
-        { coords: [26.6500, 92.7900], name: 'Tezpur River Bridge' },
-        { coords: [26.5200, 93.9700], name: 'Golaghat Arterial' },
-        { coords: [25.9000, 93.7300], name: 'Dimapur Approach' },
-        { coords: [25.4500, 93.2000], name: 'Haflong East Ridge' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    } else if (vehicle.assignedRoute === 'ROUTE_B') {
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
-        { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
-        { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
-        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
-        { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    } else {
-      waypoints = [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
-        { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
-        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
-        { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
-        { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
-        { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-      ];
-    }
+    const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
 
     let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
     let prevIdx = Math.max(0, curIdx - 1);
@@ -1400,8 +1405,9 @@ class Store {
     vehicle.coordinates = [...waypoints[prevIdx].coords];
     vehicle.currentLocationName = waypoints[prevIdx].name;
     vehicle.progressPct = Math.round((prevIdx / (waypoints.length - 1)) * 100);
-    vehicle.speed = 35;
-    vehicle.eta = `${Math.max(1, waypoints.length - prevIdx)}h 20m`;
+    vehicle.speed = 32;
+    const remMinutes = Math.max(15, Math.round((waypoints.length - 1 - prevIdx) * 18));
+    vehicle.eta = `${Math.floor(remMinutes / 60)}h ${remMinutes % 60}m`;
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),

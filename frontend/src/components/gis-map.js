@@ -161,46 +161,85 @@ export class GisMap {
 
   renderCorridors() {
     this.layers.corridors.clearLayers();
-    const { routesEvaluation, aiIntelligence } = store.state;
+    const { routesEvaluation, aiIntelligence, vehicles, driverContext } = store.state;
+    const activeVehicle = vehicles.find(v => (v.id && v.id === driverContext.activeVehicleId) || (v.vehicleId && v.vehicleId === driverContext.activeVehicleId) || (v.portCode && v.portCode === driverContext.activeVehicleId)) || vehicles[0];
+    const isVehicleRerouted = activeVehicle?.status === 'REROUTED' || activeVehicle?.assignedRoute === 'ROUTE_B_DIVERSION' || activeVehicle?.assignedRoute === 'ROUTE_B';
+    const hasHazard = (store.state.customMissions || []).some(m => m.type === 'HAZARD_INJECTION');
 
     // 1. ROUTE A — Primary Arterial (NH-6)
-    const isRouteAHighRisk = routesEvaluation.routeA.riskPct >= 70;
+    const isRouteAHighRisk = routesEvaluation.routeA.riskPct >= 70 || hasHazard;
     const isRouteAMedRisk = routesEvaluation.routeA.riskPct >= 40;
-    const routeAColor = isRouteAHighRisk ? '#f43f5e' : isRouteAMedRisk ? '#f59e0b' : '#10b981';
-    const routeADash = isRouteAHighRisk ? 'animated-dash-route-a-danger' : 'animated-dash-route-a';
-
-    const routeALine = L.polyline(CORRIDORS.ROUTE_A.waypoints, {
-      color: routeAColor,
-      weight: 5.5,
-      opacity: 0.95,
-      className: routeADash
-    });
-
-    routeALine.on('click', () => {
-      if (this.onRoadClick) this.onRoadClick('corridor-route-a');
-    });
-
-    routeALine.bindTooltip(`
-      <div class="font-sans text-xs p-1">
-        <div class="font-bold ${isRouteAHighRisk ? 'text-rose-400' : 'text-amber-400'} flex items-center justify-between gap-3">
-          <span>ROUTE A (Primary Corridor NH-6)</span>
-          <span class="font-mono text-[10px] px-1.5 py-0.2 rounded border ${isRouteAHighRisk ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-amber-950 text-amber-300 border-amber-600'}">${routesEvaluation.routeA.riskPct}% RISK</span>
+    
+    // If auto-rerouted via connector, Route A is split: Active Green up to Jowai diversion, and Blocked Red after Jowai through Sonapur
+    if (isVehicleRerouted || hasHazard) {
+      // Blocked section of Route A (Jowai -> Ladrymbai -> Khliehriat -> Sonapur -> Kalain)
+      const blockedSectionWaypoints = CORRIDORS.ROUTE_A.waypoints.slice(13, 21); // Jowai to Kalain
+      const blockedLine = L.polyline(blockedSectionWaypoints, {
+        color: '#f43f5e',
+        weight: 5,
+        opacity: 0.85,
+        dashArray: '8, 8',
+        className: 'animated-dash-route-a-danger'
+      });
+      blockedLine.bindTooltip(`
+        <div class="font-sans text-xs p-1">
+          <div class="font-bold text-rose-400 flex items-center justify-between gap-3">
+            <span>ROUTE A CHOKEPOINT (BLOCKED)</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-600">IMPASSABLE</span>
+          </div>
+          <div class="text-rose-200 mt-1">Landslide debris blocking Sonapur Pass (Km 142)</div>
         </div>
-        <div class="text-slate-300 mt-1">Status: <strong class="${isRouteAHighRisk ? 'text-rose-400 font-bold' : 'text-amber-400'}">${routesEvaluation.routeA.status}</strong></div>
-        <div class="text-slate-400 font-mono text-[10px]">Distance: 315 km · ETA: ${routesEvaluation.routeA.eta}</div>
-        <div class="text-slate-300 text-[10px] mt-0.5">Chokepoint: ${CORRIDORS.ROUTE_A.criticalChokePoint}</div>
-      </div>
-    `, { sticky: true });
+      `, { sticky: true });
+      blockedLine.addTo(this.layers.corridors);
 
-    routeALine.addTo(this.layers.corridors);
+      // ACTIVE AUTO-REROUTE PATH (Guwahati -> Shillong -> Jowai -> Nartiang -> Khanduli -> Umrangso -> Harangajao -> Silchar) - 100% VIBRANT GREEN
+      const activeNavLine = L.polyline(CORRIDORS.ROUTE_B_DIVERSION.waypoints, {
+        color: '#10b981',
+        weight: 6.5,
+        opacity: 1,
+        className: 'animated-dash-route-b'
+      });
+      activeNavLine.bindTooltip(`
+        <div class="font-sans text-xs p-1">
+          <div class="font-bold text-emerald-400 flex items-center justify-between gap-3">
+            <span>⚡ AI ACTIVE NAVIGATION ROUTE (SAFE BYPASS)</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500">OPTIMAL</span>
+          </div>
+          <div class="text-slate-200 mt-1">Direct safe transit: Jowai ↔ Umrangso Connector ↔ Route B Bedrock</div>
+          <div class="text-emerald-300 font-mono text-[10px] mt-0.5">Clear of all landslides · Destination: Silchar Hospital</div>
+        </div>
+      `, { sticky: true });
+      activeNavLine.addTo(this.layers.corridors);
+
+    } else {
+      // Normal Route A Active in Green
+      const routeAColor = isRouteAHighRisk ? '#f43f5e' : isRouteAMedRisk ? '#f59e0b' : '#10b981';
+      const routeALine = L.polyline(CORRIDORS.ROUTE_A.waypoints, {
+        color: routeAColor,
+        weight: 5.5,
+        opacity: 0.95,
+        className: isRouteAHighRisk ? 'animated-dash-route-a-danger' : 'animated-dash-route-a'
+      });
+      routeALine.bindTooltip(`
+        <div class="font-sans text-xs p-1">
+          <div class="font-bold text-emerald-400 flex items-center justify-between gap-3">
+            <span>ROUTE A (Primary Corridor NH-6)</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-600">${routesEvaluation.routeA.riskPct}% RISK</span>
+          </div>
+          <div class="text-slate-300 mt-1">Status: <strong class="text-emerald-400 font-bold">${routesEvaluation.routeA.status}</strong></div>
+          <div class="text-slate-400 font-mono text-[10px]">Distance: 315 km · ETA: ${routesEvaluation.routeA.eta}</div>
+        </div>
+      `, { sticky: true });
+      routeALine.addTo(this.layers.corridors);
+    }
 
     // 2. ROUTE B — AI Safe Alternate (NH-27 / Umrangso Bypass)
     const isRouteBRecommended = routesEvaluation.recommendedRouteId === 'ROUTE_B';
     const routeBLine = L.polyline(CORRIDORS.ROUTE_B.waypoints, {
-      color: '#10b981',
-      weight: isRouteBRecommended ? 5.5 : 4,
-      opacity: 0.95,
-      dashArray: '10, 8',
+      color: '#059669',
+      weight: isRouteBRecommended ? 4.5 : 3.5,
+      opacity: 0.85,
+      dashArray: '8, 8',
       className: 'animated-dash-route-b'
     });
 
@@ -211,12 +250,11 @@ export class GisMap {
     routeBLine.bindTooltip(`
       <div class="font-sans text-xs p-1">
         <div class="font-bold text-emerald-400 flex items-center justify-between gap-3">
-          <span>ROUTE B (AI Safe Alternate Bypass)</span>
+          <span>ROUTE B (Umrangso Ridge Bypass)</span>
           <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-600">${routesEvaluation.routeB.riskPct}% RISK</span>
         </div>
         <div class="text-slate-300 mt-1">Status: <strong class="text-emerald-400 font-bold">${routesEvaluation.routeB.status}</strong></div>
-        <div class="text-slate-400 font-mono text-[10px]">Distance: 348 km (+33 km delta) · ETA: ${routesEvaluation.routeB.eta}</div>
-        <div class="text-emerald-300 text-[10px] mt-0.5">Stable Basalt Rock Formation (Low Landslide Risk)</div>
+        <div class="text-slate-400 font-mono text-[10px]">Distance: 348 km · Safe Bedrock</div>
       </div>
     `, { sticky: true });
 

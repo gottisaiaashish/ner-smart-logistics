@@ -91,57 +91,26 @@ export function renderDriverView(appContainer) {
 
         </div>
 
-        <!-- REROUTE INTERVENTION CARD / BANNER -->
-        ${showRerouteRequired ? `
-          <div class="absolute bottom-6 left-4 right-4 z-[1000] hud-panel-danger rounded-2xl p-6 border-2 border-rose-500 bg-command-950/98 shadow-2xl space-y-4 pointer-events-auto max-h-[80vh] overflow-y-auto">
+        <!-- AI AUTO-REROUTE ACTIVE HUD BANNER (Non-blocking, direct guidance) -->
+        ${(isRerouted || hasActiveHazard) ? `
+          <div class="absolute bottom-6 left-4 right-4 z-[1000] hud-panel rounded-2xl p-4 border-2 border-emerald-500 bg-command-950/95 shadow-2xl space-y-2 pointer-events-auto backdrop-blur-md">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
-                <h3 class="text-base font-display font-extrabold text-white tracking-wider uppercase">
-                  CONTROL ROOM ADVISORY: MANDATORY REROUTE
+              <div class="flex items-center gap-2.5">
+                <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                <h3 class="text-sm font-display font-extrabold text-emerald-300 tracking-wider uppercase">
+                  ⚡ AI DYNAMIC AUTO-REROUTE ACTIVE
                 </h3>
               </div>
-              <span class="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500 text-xs font-mono font-bold">
-                CRITICAL ROAD RISK (${aiIntelligence.accessibilityRiskPct}%)
+              <span class="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[11px] font-mono font-bold">
+                SAFE BEDROCK CORRIDOR
               </span>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-rose-950/50 border border-rose-900/80 text-xs text-rose-200 font-mono">
-              <strong>Incident Alert:</strong> Roadway cut off ahead. ${environment.landslideProb >= 50 ? `Severe Landslides & Rockfall detected (${environment.landslideProb}% hazard).` : `Extreme Monsoon Inundation (${environment.rainfall} mm/hr).`} Immediate diversion required.
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-900/80 flex flex-col justify-between text-xs font-mono">
-                <div>
-                  <span class="text-emerald-400 font-bold">ROUTE B: Umrangso Ridge Bypass</span>
-                  <p class="text-slate-300 mt-1">348 km · Reinforced Bedrock · Risk: 22% (LOW)</p>
-                </div>
-                <button id="btn-accept-route-b" class="mt-3 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs font-mono transition flex items-center justify-center shadow-lg shadow-emerald-950">
-                  Divert to Route B
-                </button>
+            <div class="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-800/80 text-xs text-emerald-100 font-mono flex items-center justify-between">
+              <div>
+                <strong>Active Route:</strong> Sonapur Landslide bypassed. Following <strong>Jowai ↔ Umrangso Connector (SH-6)</strong> into Silchar Hospital.
               </div>
-
-              <div class="p-3.5 rounded-xl bg-purple-950/50 border border-purple-900/80 flex flex-col justify-between text-xs font-mono">
-                <div>
-                  <span class="text-purple-400 font-bold">ROUTE C: Northern Ridge Bypass</span>
-                  <p class="text-slate-300 mt-1">380 km · Via Tezpur & Dimapur · Risk: 34% (BACKUP)</p>
-                </div>
-                <button id="btn-accept-route-c" class="mt-3 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs font-mono transition flex items-center justify-center shadow-lg shadow-purple-950">
-                  Divert to Route C
-                </button>
-              </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row items-center gap-3 pt-1">
-              <button id="btn-request-drone" class="flex-1 py-3 px-4 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 font-mono font-bold text-xs border border-cyan-500/50 transition flex items-center justify-center gap-1.5">
-                <span>🚁 Request Emergency Drone Airlift</span>
-              </button>
-              <button id="btn-decline-reroute" class="py-3 px-5 rounded-xl bg-command-800 hover:bg-command-750 text-slate-300 text-xs font-mono font-medium border border-command-border">
-                Decline & Hold
-              </button>
-              <button id="btn-call-dispatch" class="py-3 px-5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 text-xs font-mono font-bold border border-cyan-500/40">
-                Contact Dispatch
-              </button>
+              <span class="text-emerald-400 font-bold font-mono text-sm shrink-0 ml-4">${vehicle.eta}</span>
             </div>
           </div>
         ` : ''}
