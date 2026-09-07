@@ -68,14 +68,19 @@ export function renderDriverView(appContainer) {
             </div>
           </div>
 
+          <!-- Drive Forward / Step Waypoint Button -->
+          <button id="btn-driver-drive-step" class="hud-panel px-4 py-3 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 hover:border-cyan-400 text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-2 transition shadow-md whitespace-nowrap" title="Advance Truck to Next Road Landmark">
+            <span>🚗 Drive Forward ▶</span>
+          </button>
+
           <!-- Enter Another Port Code / Change Ride -->
-          <button id="btn-driver-change-port" class="hud-panel px-4 py-3 rounded-xl border border-cyan-500/40 hover:border-cyan-400 text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-2 transition shadow-md">
-            <span>🔑 Enter Port Code</span>
+          <button id="btn-driver-change-port" class="hud-panel px-3.5 py-3 rounded-xl border border-cyan-500/40 hover:border-cyan-400 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition shadow-md whitespace-nowrap">
+            <span>🔑 Port Code</span>
           </button>
 
           <!-- Quick Offline Mode Toggle Button -->
-          <button id="btn-driver-offline-toggle" class="hud-panel px-4 py-3 rounded-xl border border-command-border text-xs font-mono font-medium flex items-center justify-center gap-2 transition ${driverContext.isOfflineMode ? 'bg-amber-600/30 text-amber-300 border-amber-500' : 'text-slate-300 hover:text-white'}">
-            <span>${driverContext.isOfflineMode ? 'Offline Active' : 'Mesh Net'}</span>
+          <button id="btn-driver-offline-toggle" class="hud-panel px-3 py-3 rounded-xl border border-command-border text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition ${driverContext.isOfflineMode ? 'bg-amber-600/30 text-amber-300 border-amber-500' : 'text-slate-300 hover:text-white'}">
+            <span>${driverContext.isOfflineMode ? 'Offline' : 'Mesh'}</span>
           </button>
 
         </div>
@@ -271,6 +276,12 @@ export function renderDriverView(appContainer) {
         text: 'TRUCK-07 calling Control Room: Standing by at Nongpoh-Shillong junction for instructions.'
       });
       sounds.speakDispatch('Dispatch here, loud and clear TRUCK-07.');
+    });
+
+    // Drive Forward next waypoint
+    appContainer.querySelector('#btn-driver-drive-step')?.addEventListener('click', () => {
+      sounds.playSuccess();
+      store.advanceVehicle(vehicle.id || 'TRUCK-07');
     });
 
     appContainer.querySelector('#btn-driver-change-port')?.addEventListener('click', () => {

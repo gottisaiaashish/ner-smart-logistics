@@ -859,6 +859,34 @@ class Store {
     this.notify();
   }
 
+  // Advance Vehicle along Route Waypoints
+  advanceVehicle(vehicleId) {
+    const v = this.state.vehicles.find(veh => veh.id === vehicleId || veh.vehicleId === vehicleId) || this.state.vehicles[0];
+    if (!v) return;
+
+    const isRouteB = v.assignedRoute === 'ROUTE_B' || v.status === 'REROUTED';
+    const routeWaypoints = isRouteB ? CORRIDORS.ROUTE_B.waypoints : CORRIDORS.ROUTE_A.waypoints;
+    const landmarkNames = isRouteB
+      ? ['Guwahati Checkpost', 'Jagiroad Bypass', 'Nagaon Crossing', 'Dabaka Junction', 'Lumding Ridge', 'Umrangso Safe Valley', 'Harangajao Cut', 'Silchar District Hospital (Arrived)']
+      : ['Guwahati Checkpost', 'Nongpoh Ascent', 'Shillong Central Hub', 'Jowai Pass', 'Khliehriat Chokepoint', 'Sonapur Landslide Sector', 'Kalain Approach', 'Silchar District Hospital (Arrived)'];
+
+    if (v.currentWaypointIdx === undefined) {
+      // Find closest waypoint
+      v.currentWaypointIdx = 0;
+    }
+    v.currentWaypointIdx = (v.currentWaypointIdx + 1) % routeWaypoints.length;
+
+    v.coordinates = [...routeWaypoints[v.currentWaypointIdx]];
+    v.currentLocationName = landmarkNames[v.currentWaypointIdx] || `Corridor Milestone ${v.currentWaypointIdx * 45} km`;
+    v.progressPct = Math.round(((v.currentWaypointIdx + 1) / routeWaypoints.length) * 100);
+    
+    const remainingHours = Math.max(0.5, (routeWaypoints.length - v.currentWaypointIdx - 1) * 0.8).toFixed(1);
+    v.eta = v.currentWaypointIdx === routeWaypoints.length - 1 ? 'ARRIVED DESTINATION' : `${remainingHours}h remaining`;
+    v.speed = v.status === 'DELAYED' ? 18 : 54;
+
+    this.notify();
+  }
+
   // State Mutators
   setSelectedVehicle(vehicleId) {
     this.state.selectedVehicleId = vehicleId;
