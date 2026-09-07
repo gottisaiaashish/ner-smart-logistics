@@ -230,19 +230,68 @@ class SystemState {
     return this.getState();
   }
 
+  advanceVehicle(vehicleId = 'TRUCK-07') {
+    const vehicle = this.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.vehicles[0];
+    if (!vehicle) return this.getState();
+
+    const isRouteB = vehicle.assignedRoute === 'ROUTE_B';
+    const waypoints = isRouteB ? [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
+      { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
+      { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
+      { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+      { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
+      { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
+      { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ] : [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
+      { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
+      { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+      { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
+      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
+      { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ];
+
+    let curIdx = vehicle.currentWaypointIdx ?? 0;
+    let nextIdx = curIdx + 1;
+    if (nextIdx >= waypoints.length) nextIdx = 0;
+
+    vehicle.currentWaypointIdx = nextIdx;
+    vehicle.coordinates = waypoints[nextIdx].coords;
+    vehicle.currentLocationName = waypoints[nextIdx].name;
+    vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
+    vehicle.speed = Math.floor(46 + Math.random() * 12);
+    vehicle.eta = `${Math.max(1, 8 - nextIdx)}h ${Math.floor(10 + Math.random() * 40)}m`;
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+      title: `GPS TELEMETRY UPDATE: ${vehicle.vehicleId || vehicle.id}`,
+      desc: `Advanced to ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}]. Speed: ${vehicle.speed} km/h.`,
+      type: 'info'
+    });
+
+    return this.getState();
+  }
+
   acceptReroute(vehicleId = 'TRUCK-07') {
-    const vehicle = this.vehicles.find(v => v.id === vehicleId || v.portCode === vehicleId);
+    const vehicle = this.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.vehicles[0];
     if (vehicle) {
       vehicle.assignedRoute = 'ROUTE_B';
-      vehicle.currentLocationName = 'SH-17 near Umrangso Ridge Bypass';
-      vehicle.coordinates = [25.5100, 92.7400];
-      vehicle.speed = 46;
-      vehicle.status = 'REROUTED_SAFE';
+      vehicle.currentLocationName = 'Umrangso Safe Rock Bypass (Route B)';
+      vehicle.coordinates = [25.4120, 92.9820];
+      vehicle.currentWaypointIdx = 5;
+      vehicle.progressPct = 65;
+      vehicle.speed = 52;
+      vehicle.status = 'REROUTED';
+      vehicle.eta = '3h 20m';
     }
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
-      title: `REROUTE CONFIRMED: ${vehicle?.vehicleNumber || vehicleId}`,
+      title: `REROUTE CONFIRMED: ${vehicle?.vehicleNumber || vehicle?.id || vehicleId}`,
       desc: `Driver diverted successfully onto Route B (Umrangso bypass). Delivery safety preserved.`,
       type: 'success'
     });

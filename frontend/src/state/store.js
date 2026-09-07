@@ -264,7 +264,6 @@ class Store {
       this.state.driverContext.pttState = 'RECEIVED';
       this.state.driverContext.pttHistory = serverState.pttFeed;
 
-      // Play audio dispatch if it's a fresh message from another sender
       if (isNew) {
         this.lastPlayedPttId = latestMsg.id;
         sounds.playPttPress();
@@ -272,6 +271,17 @@ class Store {
           sounds.speakDispatch(`${latestMsg.sender}: ${latestMsg.text}`);
         }, 100);
       }
+    }
+    if (serverState.vehicles && Array.isArray(serverState.vehicles)) {
+      serverState.vehicles.forEach(sv => {
+        const targetId = sv.id || sv.vehicleId;
+        const idx = this.state.vehicles.findIndex(v => (v.id && v.id === targetId) || (v.vehicleId && v.vehicleId === targetId) || (v.portCode && sv.portCode && v.portCode === sv.portCode));
+        if (idx !== -1) {
+          this.state.vehicles[idx] = { ...this.state.vehicles[idx], ...sv };
+        } else {
+          this.state.vehicles.unshift(sv);
+        }
+      });
     }
     this.recalculateAIEngine();
     this.notify();
@@ -1258,6 +1268,147 @@ class Store {
 
     this.notify();
     return newMission;
+  }
+
+  // Advance Vehicle Along Assigned Route Waypoints (Drive Forward)
+  advanceVehicle(vehicleId = 'TRUCK-07') {
+    const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
+    if (!vehicle) return;
+
+    const isRouteB = vehicle.assignedRoute === 'ROUTE_B';
+    const waypoints = isRouteB ? [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
+      { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
+      { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
+      { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+      { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
+      { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
+      { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ] : [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
+      { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
+      { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+      { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
+      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
+      { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ];
+
+    let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
+    let nextIdx = curIdx + 1;
+    if (nextIdx >= waypoints.length) nextIdx = 0;
+
+    vehicle.currentWaypointIdx = nextIdx;
+    vehicle.coordinates = [...waypoints[nextIdx].coords];
+    vehicle.currentLocationName = waypoints[nextIdx].name;
+    vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
+    vehicle.speed = Math.floor(46 + Math.random() * 12);
+    vehicle.eta = `${Math.max(1, 8 - nextIdx)}h ${Math.floor(10 + Math.random() * 40)}m`;
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      title: `GPS TELEMETRY UPDATE: ${vehicle.id}`,
+      desc: `Advanced to ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}]. Speed: ${vehicle.speed} km/h.`,
+      type: 'info'
+    });
+
+    // Broadcast over WebSocket to sync all portals/screens
+    socketClient.send('ADVANCE_VEHICLE', { vehicleId: vehicle.id || vehicleId });
+
+    this.notify();
+    return vehicle;
+  }
+
+  // Accept Route B Reroute
+  acceptReroute(vehicleId = 'TRUCK-07') {
+    const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
+    if (vehicle) {
+      vehicle.assignedRoute = 'ROUTE_B';
+      vehicle.activeCorridorId = 'corridor-route-b';
+      vehicle.currentLocationName = 'Umrangso Safe Rock Bypass (Route B)';
+      vehicle.coordinates = [25.4120, 92.9820];
+      vehicle.currentWaypointIdx = 5;
+      vehicle.progressPct = 65;
+      vehicle.speed = 52;
+      vehicle.status = 'REROUTED';
+      vehicle.eta = '3h 20m';
+      vehicle.riskLevel = 'LOW';
+    }
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      title: `REROUTE CONFIRMED: ${vehicle?.id || vehicleId}`,
+      desc: `Driver diverted successfully onto Route B (Umrangso bypass). Delivery safety preserved.`,
+      type: 'success'
+    });
+
+    // Broadcast over WebSocket
+    socketClient.send('ACCEPT_REROUTE', { vehicleId: vehicle?.id || vehicleId });
+
+    this.notify();
+    return vehicle;
+  }
+
+  // Driver Login via Checkpost Port Code
+  loginWithPortCode(code) {
+    if (!code) return { success: false, message: 'Port Code is required' };
+    const clean = code.trim().toUpperCase();
+    const vehicle = this.state.vehicles.find(v => (v.portCode && v.portCode.toUpperCase() === clean) || (v.id && v.id.toUpperCase() === clean) || (v.vehicleNumber && v.vehicleNumber.toUpperCase().includes(clean)));
+
+    if (vehicle) {
+      this.state.driverContext.activeVehicleId = vehicle.id;
+      this.state.selectedVehicleId = vehicle.id;
+      this.notify();
+      return { success: true, vehicle };
+    }
+
+    // If not found in current vehicles, create a mapped vehicle for this port code
+    const newId = `TRUCK-${clean.replace(/[^0-9]/g, '').slice(-2) || '88'}`;
+    const newV = {
+      id: newId,
+      vehicleId: newId,
+      name: `Lifeline Unit ${newId}`,
+      portCode: clean,
+      registration: `AS-01-EE-${Math.floor(1000 + Math.random() * 9000)}`,
+      driverName: 'Dispatched Checkpost Driver',
+      driverPhone: '+91 98640 ' + Math.floor(10000 + Math.random() * 90000),
+      cargo: 'Emergency Relief Supplies',
+      cargoType: 'Critical Cold-Chain',
+      priority: 'CRITICAL',
+      origin: 'Checkpost Hub, Guwahati',
+      destination: 'District Civil Hospital, Silchar',
+      coordinates: [26.1445, 91.7362],
+      assignedRoute: 'ROUTE_A',
+      activeCorridorId: 'corridor-route-a',
+      status: 'IN_TRANSIT',
+      speed: 48,
+      eta: '5h 15m',
+      progressPct: 10,
+      currentLocationName: 'Guwahati Depot',
+      currentWaypointIdx: 0,
+      currentTemp: '-18.5°C',
+      tempRequirement: '-20°C to -15°C'
+    };
+    this.state.vehicles.unshift(newV);
+    this.state.driverContext.activeVehicleId = newId;
+    this.state.selectedVehicleId = newId;
+    this.notify();
+    return { success: true, vehicle: newV };
+  }
+
+  // Delete vehicle from fleet
+  deleteVehicle(vehicleId) {
+    this.state.vehicles = this.state.vehicles.filter(v => v.id !== vehicleId && v.vehicleId !== vehicleId && v.portCode !== vehicleId);
+    if (this.state.selectedVehicleId === vehicleId) {
+      this.state.selectedVehicleId = this.state.vehicles[0]?.id || null;
+    }
+    if (this.state.driverContext.activeVehicleId === vehicleId) {
+      this.state.driverContext.activeVehicleId = this.state.vehicles[0]?.id || null;
+    }
+    socketClient.send('DELETE_VEHICLE', { vehicleId });
+    this.notify();
   }
 
   // Reset demo state

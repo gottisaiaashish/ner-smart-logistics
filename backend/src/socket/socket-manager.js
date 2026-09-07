@@ -76,6 +76,9 @@ class SocketManager {
       case 'ACCEPT_REROUTE':
         updatedState = systemState.acceptReroute(payload.vehicleId);
         break;
+      case 'ADVANCE_VEHICLE':
+        updatedState = systemState.advanceVehicle(payload.vehicleId);
+        break;
       case 'DELETE_VEHICLE':
         updatedState = systemState.deleteVehicle(payload.vehicleId);
         break;
