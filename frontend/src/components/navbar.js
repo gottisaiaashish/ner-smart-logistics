@@ -4,6 +4,7 @@
  */
 
 import { store, USER_ROLES, PRESET_CREDENTIALS } from '../state/store.js';
+import { navigateTo } from '../app.js';
 import { openEnvironmentControlModal } from './environment-control-modal.js';
 import { openSimulationControllerModal } from './simulation-controller-bar.js';
 import { openAlertModal } from './alert-modal.js';
@@ -28,7 +29,7 @@ export function renderNavbar(container, activeTab = 'dashboard') {
         <div class="flex items-center gap-3 cursor-pointer" id="btn-brand-home">
           <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/40 flex items-center justify-center font-mono font-bold text-xs text-cyan-400 relative">
             NER
-            <span class="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
           </div>
           <div>
             <div class="flex items-center gap-2">
@@ -45,21 +46,21 @@ export function renderNavbar(container, activeTab = 'dashboard') {
           </div>
         </div>
 
-        <!-- Portal Quick-Switch Navigation Tabs -->
+        <!-- Portal Quick-Switch Navigation Tabs (Clean Direct URLs) -->
         <nav class="hidden lg:flex items-center gap-1.5 bg-command-950 p-1 rounded-xl border border-command-border text-xs font-mono">
-          <a href="#/control-room" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Control Room Portal">
+          <a href="/control-room" data-route="control-room" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Control Room Portal (/control-room)">
             <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-400' : 'bg-slate-600'}"></span>
             Control Room
           </a>
-          <a href="#/driver" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Driver Cockpit HUD">
+          <a href="/driver" data-route="driver" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Driver Cockpit HUD (/driver)">
             <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
             Driver HUD
           </a>
-          <a href="#/point-launch" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Point & Launch Portal">
+          <a href="/point-launch" data-route="point-launch" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Point & Launch Portal (/point-launch)">
             <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-400' : 'bg-slate-600'}"></span>
             Point & Launch
           </a>
-          <a href="#/field-officer" class="px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Field Officer Portal">
+          <a href="/field-officer" data-route="field-officer" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Field Officer Portal (/field-officer)">
             <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-400' : 'bg-slate-600'}"></span>
             Field Officer
           </a>
@@ -158,9 +159,19 @@ export function renderNavbar(container, activeTab = 'dashboard') {
     setInterval(updateClock, 1000);
   }
 
+  // Fast Switch Portal Links
+  container.querySelectorAll('.btn-nav-portal-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      sounds.playSuccess();
+      const route = e.currentTarget.getAttribute('data-route');
+      navigateTo(route);
+    });
+  });
+
   // Home Brand link
   container.querySelector('#btn-brand-home')?.addEventListener('click', () => {
-    window.location.hash = '#/login';
+    navigateTo('login');
   });
 
   // Sound Toggle
@@ -192,6 +203,6 @@ export function renderNavbar(container, activeTab = 'dashboard') {
 
   container.querySelector('#btn-user-logout')?.addEventListener('click', () => {
     store.logout();
-    window.location.hash = '#/login';
+    navigateTo('login');
   });
 }

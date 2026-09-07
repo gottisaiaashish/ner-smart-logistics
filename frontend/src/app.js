@@ -18,20 +18,25 @@ import { renderMissionLaunchView } from './views/mission-launch-view.js';
 const appContainer = document.getElementById('app');
 
 export function getActiveRoute() {
-  const path = window.location.pathname.toLowerCase();
-  const hash = window.location.hash.toLowerCase().replace('#', '').replace('/', '');
+  const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+  const hash = window.location.hash.toLowerCase().replace(/^[#/]+|[#/]+$/g, '');
+  const target = path || hash;
 
-  if (hash.includes('control') || path.includes('control')) return 'control-room';
-  if (hash.includes('driver') || path.includes('driver')) return 'driver';
-  if (hash.includes('point') || hash.includes('launch') || hash.includes('sim') || path.includes('point') || path.includes('launch') || path.includes('sim')) return 'point-launch';
-  if (hash.includes('field') || path.includes('field')) return 'field-officer';
-  if (hash.includes('login') || path.includes('login')) return 'login';
+  if (target.includes('control')) return 'control-room';
+  if (target.includes('driver')) return 'driver';
+  if (target.includes('point') || target.includes('launch') || target.includes('sim')) return 'point-launch';
+  if (target.includes('field')) return 'field-officer';
+  if (target.includes('login')) return 'login';
 
   return 'home';
 }
 
 export function navigateTo(route) {
-  window.location.hash = `#/${route}`;
+  const cleanPath = route.startsWith('/') ? route : `/${route}`;
+  const targetUrl = cleanPath === '/home' ? '/' : cleanPath;
+  if (window.location.pathname !== targetUrl) {
+    window.history.pushState(null, '', targetUrl);
+  }
   renderApp();
 }
 

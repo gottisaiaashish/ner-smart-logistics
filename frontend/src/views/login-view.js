@@ -4,6 +4,7 @@
  */
 
 import { store, PRESET_CREDENTIALS, USER_ROLES } from '../state/store.js';
+import { navigateTo } from '../app.js';
 import { sounds } from '../audio/sound-effects.js';
 
 export function renderLoginView(appContainer) {
@@ -79,53 +80,57 @@ export function renderLoginView(appContainer) {
             
             <div>
               <h3 class="text-lg font-display font-bold text-white uppercase tracking-wider">Direct Portal Access</h3>
-              <p class="text-xs text-slate-400 font-mono mt-0.5">Click any portal below to open its dedicated live route</p>
+              <p class="text-xs text-slate-400 font-mono mt-0.5">Click any portal below to open its dedicated direct URL</p>
             </div>
 
             <!-- 4 Dedicated Portal Route Cards -->
             <div class="grid grid-cols-2 gap-3">
               
               <!-- Portal 1: Control Room -->
-              <a href="#/control-room" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-cyan-500/30 hover:border-cyan-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="control-room">
+              <a href="/control-room" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-cyan-500/30 hover:border-cyan-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="control-room">
                 <div>
                   <div class="text-cyan-400 text-sm font-bold font-mono group-hover:text-cyan-300 transition">Control Room</div>
                   <div class="text-[11px] text-slate-400 font-mono mt-1">Checkpost & Dispatch</div>
                 </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
-                  /control-room
+                <div class="text-[10px] font-mono text-cyan-500/80 mt-3 pt-2 border-t border-command-border/60 flex items-center justify-between">
+                  <span>/control-room</span>
+                  <span class="group-hover:translate-x-1 transition text-cyan-400">→</span>
                 </div>
               </a>
 
               <!-- Portal 2: Driver HUD -->
-              <a href="#/driver" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-emerald-500/30 hover:border-emerald-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="driver">
+              <a href="/driver" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-emerald-500/30 hover:border-emerald-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="driver">
                 <div>
                   <div class="text-emerald-400 text-sm font-bold font-mono group-hover:text-emerald-300 transition">Driver HUD</div>
                   <div class="text-[11px] text-slate-400 font-mono mt-1">Route A Live Cockpit</div>
                 </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
-                  /driver
+                <div class="text-[10px] font-mono text-emerald-500/80 mt-3 pt-2 border-t border-command-border/60 flex items-center justify-between">
+                  <span>/driver</span>
+                  <span class="group-hover:translate-x-1 transition text-emerald-400">→</span>
                 </div>
               </a>
 
               <!-- Portal 3: Point & Launch -->
-              <a href="#/point-launch" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-purple-500/30 hover:border-purple-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="point-launch">
+              <a href="/point-launch" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-purple-500/30 hover:border-purple-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="point-launch">
                 <div>
                   <div class="text-purple-400 text-sm font-bold font-mono group-hover:text-purple-300 transition">Point & Launch</div>
                   <div class="text-[11px] text-slate-400 font-mono mt-1">Simulate Rain & Hazards</div>
                 </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
-                  /point-launch
+                <div class="text-[10px] font-mono text-purple-500/80 mt-3 pt-2 border-t border-command-border/60 flex items-center justify-between">
+                  <span>/point-launch</span>
+                  <span class="group-hover:translate-x-1 transition text-purple-400">→</span>
                 </div>
               </a>
 
               <!-- Portal 4: Field Officer -->
-              <a href="#/field-officer" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-amber-500/30 hover:border-amber-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="field-officer">
+              <a href="/field-officer" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-amber-500/30 hover:border-amber-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="field-officer">
                 <div>
                   <div class="text-amber-400 text-sm font-bold font-mono group-hover:text-amber-300 transition">Field Officer</div>
                   <div class="text-[11px] text-slate-400 font-mono mt-1">Road Hazard Reporting</div>
                 </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
-                  /field-officer
+                <div class="text-[10px] font-mono text-amber-500/80 mt-3 pt-2 border-t border-command-border/60 flex items-center justify-between">
+                  <span>/field-officer</span>
+                  <span class="group-hover:translate-x-1 transition text-amber-400">→</span>
                 </div>
               </a>
 
@@ -169,7 +174,7 @@ export function renderLoginView(appContainer) {
     const result = store.loginWithPortCode(portCode);
     if (result.success) {
       sounds.playSuccess();
-      window.location.hash = '#/driver';
+      navigateTo('driver');
     } else {
       sounds.playEmergencyAlert();
       if (portError) {
@@ -182,9 +187,10 @@ export function renderLoginView(appContainer) {
   // Bind Portal Route Clicks
   appContainer.querySelectorAll('.btn-portal-route').forEach(link => {
     link.addEventListener('click', (e) => {
+      e.preventDefault();
       sounds.playSuccess();
       const route = e.currentTarget.getAttribute('data-route');
-      window.location.hash = `#/${route}`;
+      navigateTo(route);
     });
   });
 
@@ -200,10 +206,10 @@ export function renderLoginView(appContainer) {
     const result = store.login(username, password);
     if (result.success) {
       sounds.playSuccess();
-      if (result.user.role === USER_ROLES.CONTROL_ROOM) window.location.hash = '#/control-room';
-      else if (result.user.role === USER_ROLES.DRIVER) window.location.hash = '#/driver';
-      else if (result.user.role === USER_ROLES.FIELD_OFFICER) window.location.hash = '#/field-officer';
-      else if (result.user.role === USER_ROLES.MISSION_LAUNCH) window.location.hash = '#/point-launch';
+      if (result.user.role === USER_ROLES.CONTROL_ROOM) navigateTo('control-room');
+      else if (result.user.role === USER_ROLES.DRIVER) navigateTo('driver');
+      else if (result.user.role === USER_ROLES.FIELD_OFFICER) navigateTo('field-officer');
+      else if (result.user.role === USER_ROLES.MISSION_LAUNCH) navigateTo('point-launch');
     } else {
       sounds.playEmergencyAlert();
       if (errorMsg) {
