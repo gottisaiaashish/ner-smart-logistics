@@ -309,6 +309,7 @@ export function renderControlRoomView(appContainer) {
             <span class="text-[10px] font-mono text-emerald-400">4G/SAT LINK ACTIVE</span>
           </div>
 
+          <!-- PTT Transmit Button -->
           <div class="p-3.5 rounded-xl bg-command-850 border border-command-border space-y-2">
             <button id="btn-cr-ptt-talk" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-mono font-bold text-xs flex items-center justify-center gap-2 shadow-md transition select-none">
               HOLD TO TRANSMIT DISPATCH VOICE
@@ -316,6 +317,27 @@ export function renderControlRoomView(appContainer) {
             <p class="text-[11px] text-slate-400 font-mono text-center">
               Transmits real-time audio advisory directly to connected driver cabs.
             </p>
+          </div>
+
+          <!-- Incoming Driver Voice Transmission Feed -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400 uppercase">Incoming Radio Feed:</span>
+              <span class="text-cyan-400 font-bold">${store.state.pttFeed?.length || 0} msgs</span>
+            </div>
+
+            ${(store.state.pttFeed || []).slice(0, 3).map((msg, idx) => `
+              <div class="p-3 rounded-xl bg-command-900 border border-command-border space-y-1.5 shadow-sm">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-mono font-bold text-cyan-300">${msg.sender}</span>
+                  <span class="font-mono text-slate-500 text-[10px]">${msg.timestamp || msg.time || 'Just now'}</span>
+                </div>
+                <p class="text-xs text-slate-200 leading-snug font-mono">${msg.text}</p>
+                <button class="btn-replay-ptt text-[10px] font-mono text-cyan-400 hover:text-cyan-300 underline pt-1 block" data-text="${msg.text}">
+                  ▶ Replay Audio Transmission
+                </button>
+              </div>
+            `).join('')}
           </div>
         </div>
 
@@ -430,6 +452,17 @@ export function renderControlRoomView(appContainer) {
       crPttBtn.addEventListener('touchstart', startTalking);
       crPttBtn.addEventListener('touchend', stopTalking);
     }
+
+    // Replay incoming PTT audio
+    appContainer.querySelectorAll('.btn-replay-ptt').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const txt = e.currentTarget.getAttribute('data-text');
+        sounds.playPttPress();
+        setTimeout(() => {
+          sounds.speakDispatch(txt);
+        }, 150);
+      });
+    });
 
     // Vehicle cards focus
     appContainer.querySelectorAll('.btn-vehicle-card').forEach(card => {

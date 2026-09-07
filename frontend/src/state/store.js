@@ -7,6 +7,7 @@ import { INITIAL_VEHICLES } from '../data/vehicles-data.js';
 import { INITIAL_ALERTS, INITIAL_TIMELINE, INITIAL_FIELD_REPORTS, INITIAL_DELIVERIES } from '../data/mock-state.js';
 import { CORRIDORS, DISASTER_ZONES, RIVER_GAUGES } from '../data/geo-data.js';
 import { socketClient } from './socket-client.js';
+import { sounds } from '../audio/sound-effects.js';
 
 const STORAGE_KEY = 'NER_LOGISTICS_STATE_V2';
 
@@ -257,9 +258,20 @@ class Store {
     if (serverState.timeline) this.state.timeline = serverState.timeline;
     if (serverState.pttFeed && serverState.pttFeed.length > 0) {
       const latestMsg = serverState.pttFeed[0];
+      const isNew = !this.lastPlayedPttId || this.lastPlayedPttId !== latestMsg.id;
+      
       this.state.driverContext.pttIncomingMessage = latestMsg;
       this.state.driverContext.pttState = 'RECEIVED';
       this.state.driverContext.pttHistory = serverState.pttFeed;
+
+      // Play audio dispatch if it's a fresh message from another sender
+      if (isNew) {
+        this.lastPlayedPttId = latestMsg.id;
+        sounds.playPttPress();
+        setTimeout(() => {
+          sounds.speakDispatch(`${latestMsg.sender}: ${latestMsg.text}`);
+        }, 100);
+      }
     }
     this.recalculateAIEngine();
     this.notify();
