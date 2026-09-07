@@ -53,10 +53,16 @@ export class GisMap {
 
     L.control.zoom({ position: 'topright' }).addTo(this.map);
 
-    // Dark Basemap (CartoDB Dark Matter)
-    this.tileLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd'
+    // Clean Free Basemaps (Watermark-free)
+    // Dark Basemap (ESRI Dark Gray Canvas - 100% Free & Crisp)
+    this.tileLayers.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Esri, HERE, Garmin, OpenStreetMap'
+    }).addTo(this.map);
+
+    // Reference Overlay (Street names & borders)
+    this.tileLayers.darkRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16
     }).addTo(this.map);
 
     // Satellite Basemap (ESRI World Imagery)
@@ -78,7 +84,11 @@ export class GisMap {
     this.layers.vehicles = L.layerGroup().addTo(this.map);
 
     this.renderAll();
-    this.addTacticalHudControls();
+
+    // Only render full tactical command HUD on Control Room and Simulator, NOT on Driver Navigation Cockpit
+    if (!this.options.isDriverView) {
+      this.addTacticalHudControls();
+    }
 
     setTimeout(() => {
       this.map.invalidateSize();

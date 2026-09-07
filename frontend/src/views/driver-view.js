@@ -244,7 +244,8 @@ export function renderDriverView(appContainer) {
   setTimeout(() => {
     const driverMap = new GisMap('driver-map-container', {
       center: vehicle.coordinates,
-      zoom: 9
+      zoom: 10,
+      isDriverView: true
     });
     driverMap.init();
 
