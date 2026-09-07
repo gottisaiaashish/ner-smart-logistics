@@ -192,38 +192,50 @@ class SystemState {
   }
 
   launchHazard(hazardData) {
+    const lat = parseFloat(hazardData.lat || this.targetedPin.lat);
+    const lng = parseFloat(hazardData.lng || this.targetedPin.lng);
     const newMission = {
       id: `HAZARD-${Date.now().toString().slice(-4)}`,
       type: 'HAZARD_INJECTION',
-      name: hazardData.name || `${hazardData.type} Obstruction`,
+      hazardType: hazardData.type || 'Landslide',
+      name: hazardData.name || `${hazardData.type || 'Landslide'} Obstruction`,
       severity: hazardData.severity || 'CRITICAL',
-      lat: hazardData.lat || this.targetedPin.lat,
-      lng: hazardData.lng || this.targetedPin.lng,
+      lat,
+      lng,
+      gps: [lat, lng],
       timestamp: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
       status: 'ACTIVE_BLOCKAGE',
-      radiusMeters: hazardData.severity === 'CRITICAL' ? 1200 : 600
+      radiusMeters: hazardData.severity === 'CRITICAL' ? 12000 : 6000
     };
 
     this.customMissions.unshift(newMission);
 
-    // Escalate risk on Route A
+    // Escalate risk on Route A and force Route B recommendation
     this.environment.rainfall = Math.max(this.environment.rainfall, 54);
-    this.environment.landslideProb = Math.max(this.environment.landslideProb, 92);
+    this.environment.landslideProb = 96;
     this.environment.roadSurfaceCondition = 'IMPASSABLE';
     this.environment.bridgeAccessibility = 'CLOSED';
     this.recomputeIntelligence();
+    
+    if (this.routesEvaluation && this.routesEvaluation.routeA) {
+      this.routesEvaluation.routeA.riskPct = 96;
+      this.routesEvaluation.routeA.status = 'BLOCKED';
+    }
+    if (this.routesEvaluation) {
+      this.routesEvaluation.recommendedRouteId = 'ROUTE_B';
+    }
 
     // Broadcast automated Reroute Advisory
     this.sendPttMessage({
       sender: 'Emergency C2 Controller',
       role: 'CONTROL_ROOM',
-      text: `ATTENTION ALL UNITS: Severe ${hazardData.type || 'Landslide'} on NH-6 Sonapur. Route A cutoff. Route B via Umrangso bypass is authorized. Divert immediately.`
+      text: `ATTENTION ALL UNITS: Severe ${hazardData.type || 'Landslide'} at [${lat.toFixed(3)}, ${lng.toFixed(3)}]. Route A blocked. Divert to Route B via Umrangso bypass immediately.`
     });
 
     this.addTimelineEvent({
       time: newMission.timestamp,
       title: `HAZARD LAUNCHED: ${newMission.name}`,
-      desc: `Obstruction dropped at [${newMission.lat.toFixed(4)}, ${newMission.lng.toFixed(4)}]. NH-6 Route A blocked (Risk: 88%). Route B recommended.`,
+      desc: `Obstruction dropped at [${lat.toFixed(4)}, ${lng.toFixed(4)}]. NH-6 Route A blocked (Risk: 96%). Route B bypass recommended.`,
       type: 'danger'
     });
 

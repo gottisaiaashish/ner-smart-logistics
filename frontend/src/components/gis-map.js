@@ -488,9 +488,11 @@ export class GisMap {
     const customMissions = store.state.customMissions || [];
 
     customMissions.forEach(m => {
-      if (m.type === 'HAZARD_INJECTION' && m.gps) {
-        const hazardCircle = L.circle(m.gps, {
-          radius: 12000,
+      const gps = (m.gps && Array.isArray(m.gps)) ? m.gps : (m.lat && m.lng ? [m.lat, m.lng] : null);
+
+      if (m.type === 'HAZARD_INJECTION' && gps && !isNaN(gps[0]) && !isNaN(gps[1])) {
+        const hazardCircle = L.circle(gps, {
+          radius: m.radiusMeters || 12000,
           color: '#f43f5e',
           fillColor: '#f43f5e',
           fillOpacity: 0.35,
@@ -500,7 +502,7 @@ export class GisMap {
 
         hazardCircle.bindTooltip(`
           <div class="font-sans text-xs p-1">
-            <div class="font-bold text-rose-400 uppercase tracking-wide">PINNED HAZARD: ${m.hazardType || 'Disaster'}</div>
+            <div class="font-bold text-rose-400 uppercase tracking-wide">PINNED HAZARD: ${m.hazardType || m.type || 'Disaster'}</div>
             <div class="text-white font-medium mt-0.5">${m.name}</div>
             <div class="text-rose-300 font-mono text-[10px] mt-1 font-bold">Severity: ${m.severity}</div>
           </div>
@@ -538,8 +540,8 @@ export class GisMap {
           })
         });
         targetMarker.addTo(this.layers.hazards);
-      } else if (m.type === 'SENSOR_DEPLOYMENT' && m.gps) {
-        const sensorMarker = L.marker(m.gps, {
+      } else if (m.type === 'SENSOR_DEPLOYMENT' && gps && !isNaN(gps[0]) && !isNaN(gps[1])) {
+        const sensorMarker = L.marker(gps, {
           icon: L.divIcon({
             html: `
               <div class="w-7 h-7 rounded-lg bg-cyan-600 border-2 border-white flex items-center justify-center text-white shadow-xl">
