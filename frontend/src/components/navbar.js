@@ -175,5 +175,6 @@ export function renderNavbar(container, activeTab = 'dashboard') {
 
   container.querySelector('#btn-user-logout')?.addEventListener('click', () => {
     store.logout();
+    window.location.hash = '#/login';
   });
 }

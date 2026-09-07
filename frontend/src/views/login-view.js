@@ -1,6 +1,6 @@
 /**
  * Enterprise Authentication & Role Gateway View
- * Supports Driver Access via Checkpost Port Code & Direct Role Logins
+ * Supports Driver Access via Checkpost Port Code & Direct Portal URLs (/control-room, /driver, /point-launch, /field-officer)
  */
 
 import { store, PRESET_CREDENTIALS, USER_ROLES } from '../state/store.js';
@@ -28,7 +28,7 @@ export function renderLoginView(appContainer) {
 
         <div class="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-command-900 border border-command-border text-xs font-mono text-slate-300">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>NER-GIS COMMAND PORTAL v2.5</span>
+          <span>MULTI-PORTAL GATEWAY ACTIVE</span>
         </div>
       </div>
 
@@ -73,68 +73,76 @@ export function renderLoginView(appContainer) {
 
         </div>
 
-        <!-- Right: Operator Credentials & Role Cards -->
+        <!-- Right: Dedicated Portal Direct Links & Credentials -->
         <div class="lg:col-span-6">
           <div class="hud-panel rounded-2xl p-6 sm:p-8 border border-command-border bg-command-900/90 shadow-2xl space-y-5">
             
             <div>
-              <h3 class="text-lg font-display font-bold text-white uppercase tracking-wider">Operator Portal Login</h3>
-              <p class="text-xs text-slate-400 font-mono mt-0.5">Control Room, Field Officer, or Simulator Commander</p>
+              <h3 class="text-lg font-display font-bold text-white uppercase tracking-wider">Direct Portal Access</h3>
+              <p class="text-xs text-slate-400 font-mono mt-0.5">Click any portal below to open its dedicated live route</p>
             </div>
 
-            <!-- Login Form -->
-            <form id="login-form" class="space-y-4">
-              <div>
-                <label class="block text-xs font-mono text-slate-300 mb-1.5 uppercase">
-                  Operator Username
-                </label>
-                <input type="text" id="input-username" required placeholder="Enter username (e.g. control_room)" class="w-full bg-command-950 border border-command-border rounded-xl px-4 py-2.5 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition" value="control_room">
-              </div>
+            <!-- 4 Dedicated Portal Route Cards -->
+            <div class="grid grid-cols-2 gap-3">
+              
+              <!-- Portal 1: Control Room -->
+              <a href="#/control-room" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-cyan-500/30 hover:border-cyan-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="control-room">
+                <div>
+                  <div class="text-cyan-400 text-sm font-bold font-mono group-hover:text-cyan-300 transition">Control Room</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-1">Checkpost & Dispatch</div>
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
+                  /control-room
+                </div>
+              </a>
 
-              <div>
-                <label class="block text-xs font-mono text-slate-300 mb-1.5 uppercase">Password</label>
-                <input type="password" id="input-password" required placeholder="••••••••" class="w-full bg-command-950 border border-command-border rounded-xl px-4 py-2.5 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition" value="password123">
-              </div>
+              <!-- Portal 2: Driver HUD -->
+              <a href="#/driver" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-emerald-500/30 hover:border-emerald-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="driver">
+                <div>
+                  <div class="text-emerald-400 text-sm font-bold font-mono group-hover:text-emerald-300 transition">Driver HUD</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-1">Route A Live Cockpit</div>
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
+                  /driver
+                </div>
+              </a>
 
-              <div id="login-error-msg" class="hidden p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-xs text-rose-300 font-mono"></div>
+              <!-- Portal 3: Point & Launch -->
+              <a href="#/point-launch" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-purple-500/30 hover:border-purple-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="point-launch">
+                <div>
+                  <div class="text-purple-400 text-sm font-bold font-mono group-hover:text-purple-300 transition">Point & Launch</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-1">Simulate Rain & Hazards</div>
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
+                  /point-launch
+                </div>
+              </a>
 
-              <button type="submit" class="w-full py-3 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs flex items-center justify-center shadow-lg shadow-cyan-950 transition">
-                Authorize & Open Command Room
-              </button>
-            </form>
+              <!-- Portal 4: Field Officer -->
+              <a href="#/field-officer" class="btn-portal-route p-4 rounded-xl bg-command-950 hover:bg-command-850 border border-amber-500/30 hover:border-amber-400 text-left transition flex flex-col justify-between group shadow-sm block" data-route="field-officer">
+                <div>
+                  <div class="text-amber-400 text-sm font-bold font-mono group-hover:text-amber-300 transition">Field Officer</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-1">Road Hazard Reporting</div>
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-3 pt-2 border-t border-command-border/60">
+                  /field-officer
+                </div>
+              </a>
 
-            <!-- Quick 1-Click Role Login Cards -->
-            <div class="pt-4 border-t border-command-border space-y-2.5">
-              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                <span class="uppercase">1-Click Fast Roles:</span>
-                <span class="text-cyan-400">Demo Ready</span>
-              </div>
+            </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <!-- Role 1: Control Room -->
-                <button type="button" class="btn-quick-login p-3 rounded-xl bg-command-950 hover:bg-command-800 border border-command-border text-left transition hover:border-cyan-500/50" data-username="control_room" data-password="password123">
-                  <div class="text-cyan-400 text-xs font-bold font-mono">Control Room</div>
-                  <div class="text-[10px] text-slate-400 font-mono mt-0.5">Checkpost & Dispatch</div>
+            <!-- Standard Login Option -->
+            <div class="pt-3 border-t border-command-border">
+              <form id="login-form" class="space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" id="input-username" placeholder="Username" class="bg-command-950 border border-command-border rounded-xl px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400" value="control_room">
+                  <input type="password" id="input-password" placeholder="Password" class="bg-command-950 border border-command-border rounded-xl px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400" value="password123">
+                </div>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-command-800 hover:bg-command-750 text-slate-200 font-mono font-bold text-xs border border-command-border transition">
+                  Login with Custom Credentials
                 </button>
-
-                <!-- Role 2: Driver -->
-                <button type="button" class="btn-quick-login p-3 rounded-xl bg-command-950 hover:bg-command-800 border border-command-border text-left transition hover:border-emerald-500/50" data-username="driver_07" data-password="password123">
-                  <div class="text-emerald-400 text-xs font-bold font-mono">Driver HUD</div>
-                  <div class="text-[10px] text-slate-400 font-mono mt-0.5">Route A Live Cockpit</div>
-                </button>
-
-                <!-- Role 3: Point & Launch -->
-                <button type="button" class="btn-quick-login p-3 rounded-xl bg-command-950 hover:bg-command-800 border border-command-border text-left transition hover:border-purple-500/50" data-username="mission_commander" data-password="password123">
-                  <div class="text-purple-400 text-xs font-bold font-mono">Point & Launch</div>
-                  <div class="text-[10px] text-slate-400 font-mono mt-0.5">Simulate Rain & Hazards</div>
-                </button>
-
-                <!-- Role 4: Field Officer -->
-                <button type="button" class="btn-quick-login p-3 rounded-xl bg-command-950 hover:bg-command-800 border border-command-border text-left transition hover:border-amber-500/50" data-username="field_officer" data-password="password123">
-                  <div class="text-amber-400 text-xs font-bold font-mono">Field Officer</div>
-                  <div class="text-[10px] text-slate-400 font-mono mt-0.5">Road Hazard Reporting</div>
-                </button>
-              </div>
+              </form>
+              <div id="login-error-msg" class="hidden p-2 rounded-lg bg-rose-950/60 border border-rose-500/50 text-xs text-rose-300 font-mono mt-2"></div>
             </div>
 
           </div>
@@ -161,6 +169,7 @@ export function renderLoginView(appContainer) {
     const result = store.loginWithPortCode(portCode);
     if (result.success) {
       sounds.playSuccess();
+      window.location.hash = '#/driver';
     } else {
       sounds.playEmergencyAlert();
       if (portError) {
@@ -168,6 +177,15 @@ export function renderLoginView(appContainer) {
         portError.classList.remove('hidden');
       }
     }
+  });
+
+  // Bind Portal Route Clicks
+  appContainer.querySelectorAll('.btn-portal-route').forEach(link => {
+    link.addEventListener('click', (e) => {
+      sounds.playSuccess();
+      const route = e.currentTarget.getAttribute('data-route');
+      window.location.hash = `#/${route}`;
+    });
   });
 
   // Bind Standard Form Submit
@@ -182,6 +200,10 @@ export function renderLoginView(appContainer) {
     const result = store.login(username, password);
     if (result.success) {
       sounds.playSuccess();
+      if (result.user.role === USER_ROLES.CONTROL_ROOM) window.location.hash = '#/control-room';
+      else if (result.user.role === USER_ROLES.DRIVER) window.location.hash = '#/driver';
+      else if (result.user.role === USER_ROLES.FIELD_OFFICER) window.location.hash = '#/field-officer';
+      else if (result.user.role === USER_ROLES.MISSION_LAUNCH) window.location.hash = '#/point-launch';
     } else {
       sounds.playEmergencyAlert();
       if (errorMsg) {
@@ -189,17 +211,5 @@ export function renderLoginView(appContainer) {
         errorMsg.classList.remove('hidden');
       }
     }
-  });
-
-  // Bind 1-Click Fast Login
-  appContainer.querySelectorAll('.btn-quick-login').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const u = e.currentTarget.getAttribute('data-username');
-      const p = e.currentTarget.getAttribute('data-password');
-      appContainer.querySelector('#input-username').value = u;
-      appContainer.querySelector('#input-password').value = p;
-      const res = store.login(u, p);
-      if (res.success) sounds.playSuccess();
-    });
   });
 }
