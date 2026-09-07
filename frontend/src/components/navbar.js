@@ -46,25 +46,12 @@ export function renderNavbar(container, activeTab = 'dashboard') {
           </div>
         </div>
 
-        <!-- Portal Quick-Switch Navigation Tabs (Clean Direct URLs) -->
-        <nav class="hidden lg:flex items-center gap-1.5 bg-command-950 p-1 rounded-xl border border-command-border text-xs font-mono">
-          <a href="/control-room" data-route="control-room" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Control Room Portal (/control-room)">
-            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-400' : 'bg-slate-600'}"></span>
-            Control Room
-          </a>
-          <a href="/driver" data-route="driver" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Driver Cockpit HUD (/driver)">
-            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
-            Driver HUD
-          </a>
-          <a href="/point-launch" data-route="point-launch" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Point & Launch Portal (/point-launch)">
-            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.MISSION_LAUNCH ? 'bg-purple-400' : 'bg-slate-600'}"></span>
-            Point & Launch
-          </a>
-          <a href="/field-officer" data-route="field-officer" class="btn-nav-portal-link px-2.5 py-1 rounded-lg ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-slate-400 hover:text-white hover:bg-command-850'} transition flex items-center gap-1.5" title="Open Field Officer Portal (/field-officer)">
-            <span class="w-1.5 h-1.5 rounded-full ${currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-400' : 'bg-slate-600'}"></span>
-            Field Officer
-          </a>
-        </nav>
+        <!-- Active Session Indicator Badge -->
+        <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-command-950 border border-command-border text-xs font-mono">
+          <span class="w-2 h-2 rounded-full ${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'bg-cyan-400' : currentUser?.role === USER_ROLES.DRIVER ? 'bg-emerald-400' : currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'bg-amber-400' : 'bg-purple-400'} animate-pulse"></span>
+          <span class="text-slate-400 uppercase text-[10px]">Portal Session:</span>
+          <span class="text-white font-bold text-xs">${currentUser?.role === USER_ROLES.CONTROL_ROOM ? 'Control Room C2' : currentUser?.role === USER_ROLES.DRIVER ? 'Driver In-Cab HUD' : currentUser?.role === USER_ROLES.FIELD_OFFICER ? 'Field Officer Patrol' : 'Point & Launch Simulator'}</span>
+        </div>
       </div>
 
       <!-- Center: Global System Status Bar -->
