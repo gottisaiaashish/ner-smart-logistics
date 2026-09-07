@@ -107,17 +107,18 @@ export function renderApp() {
 window.addEventListener('hashchange', renderApp);
 window.addEventListener('popstate', renderApp);
 
-// Initial render
-document.addEventListener('DOMContentLoaded', () => {
+let isAppInitialized = false;
+function initApp() {
+  if (isAppInitialized) return;
+  isAppInitialized = true;
   renderApp();
   store.subscribe(() => {
     renderApp();
   });
-});
+}
 
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
-  renderApp();
-  store.subscribe(() => {
-    renderApp();
-  });
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }

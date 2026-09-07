@@ -717,7 +717,6 @@ export function renderMissionLaunchView(appContainer) {
 
       sounds.playEmergencyAlert();
       sounds.speakDispatch(`Hazard launched at pinned sector: ${type}. AI risk recalculated.`);
-      renderMissionLaunchView(appContainer);
     });
 
     // Form 2: Launch Convoy
@@ -737,7 +736,6 @@ export function renderMissionLaunchView(appContainer) {
 
       sounds.playSuccess();
       sounds.speakDispatch(`Emergency convoy launched from pinned location to ${destName}.`);
-      renderMissionLaunchView(appContainer);
     });
 
     // Form 3: Launch Drone
@@ -755,7 +753,6 @@ export function renderMissionLaunchView(appContainer) {
 
       sounds.playSuccess();
       sounds.speakDispatch(`Lifeline drone airborne toward pinned target. Payload: ${payload}.`);
-      renderMissionLaunchView(appContainer);
     });
 
     // Form 4: Deploy Sensor
@@ -772,7 +769,6 @@ export function renderMissionLaunchView(appContainer) {
 
       sounds.playSuccess();
       sounds.speakDispatch(`IoT station deployed at pinned sector. Telemetry streaming live.`);
-      renderMissionLaunchView(appContainer);
     });
 
     // BINDINGS FOR SCENARIO CONTROLS (PANEL 2)

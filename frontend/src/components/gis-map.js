@@ -42,6 +42,11 @@ export class GisMap {
       try {
         this.map.remove();
       } catch (e) {}
+      this.map = null;
+    }
+
+    if (container._leaflet_id) {
+      container._leaflet_id = null;
     }
 
     this.map = L.map(this.containerId, {
