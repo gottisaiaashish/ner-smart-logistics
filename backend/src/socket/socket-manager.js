@@ -79,6 +79,9 @@ class SocketManager {
       case 'ADVANCE_VEHICLE':
         updatedState = systemState.advanceVehicle(payload.vehicleId);
         break;
+      case 'REVERSE_VEHICLE':
+        updatedState = systemState.reverseVehicle(payload.vehicleId);
+        break;
       case 'DELETE_VEHICLE':
         updatedState = systemState.deleteVehicle(payload.vehicleId);
         break;

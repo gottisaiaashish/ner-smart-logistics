@@ -443,9 +443,9 @@ export class GisMap {
           </div>
           
           <!-- Label Tag with Priority Indicator -->
-          <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-command-900/95 border ${isCriticalPriority ? 'border-rose-500 text-rose-300' : 'border-slate-700 text-white'} text-[10px] font-mono font-bold whitespace-nowrap shadow-lg flex items-center gap-1">
+          <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-command-900/95 border ${isCriticalPriority ? 'border-rose-500 text-rose-300' : 'border-cyan-500/60 text-white'} text-[10px] font-mono font-bold whitespace-nowrap shadow-xl flex items-center gap-1.5 z-40">
             ${isCriticalPriority ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>' : ''}
-            <span>${vehicle.id}</span>
+            <span>${vehicle.driverName ? `${vehicle.driverName} (${vehicle.id})` : vehicle.id}</span>
           </div>
 
           <!-- Pulsing Halo for Critical Emergency -->

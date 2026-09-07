@@ -288,6 +288,51 @@ class SystemState {
     return this.getState();
   }
 
+  reverseVehicle(vehicleId = 'TRUCK-07') {
+    const vehicle = this.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.vehicles[0];
+    if (!vehicle) return this.getState();
+
+    const isRouteB = vehicle.assignedRoute === 'ROUTE_B' || vehicle.assignedRoute === 'ROUTE_B_DIVERSION';
+    const waypoints = isRouteB ? [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
+      { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
+      { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
+      { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+      { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
+      { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
+      { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ] : [
+      { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
+      { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
+      { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+      { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
+      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
+      { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
+      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+    ];
+
+    let curIdx = vehicle.currentWaypointIdx ?? 0;
+    let prevIdx = Math.max(0, curIdx - 1);
+
+    vehicle.currentWaypointIdx = prevIdx;
+    vehicle.coordinates = waypoints[prevIdx].coords;
+    vehicle.currentLocationName = waypoints[prevIdx].name;
+    vehicle.progressPct = Math.round((prevIdx / (waypoints.length - 1)) * 100);
+    vehicle.speed = 35;
+    vehicle.eta = `${Math.max(1, waypoints.length - prevIdx)}h 20m`;
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+      title: `GPS REVERSE STEP: ${vehicle.vehicleId || vehicle.id}`,
+      desc: `Reversed to safety landmark ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}].`,
+      type: 'info'
+    });
+
+    return this.getState();
+  }
+
   acceptReroute(vehicleId = 'TRUCK-07') {
     const vehicle = this.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.vehicles[0];
     if (vehicle) {

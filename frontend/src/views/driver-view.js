@@ -68,10 +68,16 @@ export function renderDriverView(appContainer) {
             </div>
           </div>
 
-          <!-- Drive Forward / Step Waypoint Button -->
-          <button id="btn-driver-drive-step" class="hud-panel px-4 py-3 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 hover:border-cyan-400 text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-2 transition shadow-md whitespace-nowrap" title="Advance Truck to Next Road Landmark">
-            <span>🚗 Drive Forward ▶</span>
-          </button>
+          <!-- Navigation Step Buttons: Reverse & Drive Forward -->
+          <div class="flex items-center gap-2">
+            <button id="btn-driver-drive-back" class="hud-panel px-3.5 py-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-600 hover:border-slate-400 text-xs font-mono font-bold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition shadow-md whitespace-nowrap" title="Step Back / Reverse to Previous Safe Junction">
+              <span>◀ Reverse</span>
+            </button>
+
+            <button id="btn-driver-drive-step" class="hud-panel px-4 py-3 rounded-xl bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-500/60 hover:border-cyan-400 text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-2 transition shadow-md whitespace-nowrap" title="Advance Truck to Next Road Landmark">
+              <span>🚗 Drive Forward ▶</span>
+            </button>
+          </div>
 
           <!-- Enter Another Port Code / Change Ride -->
           <button id="btn-driver-change-port" class="hud-panel px-3.5 py-3 rounded-xl border border-cyan-500/40 hover:border-cyan-400 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition shadow-md whitespace-nowrap">
@@ -87,7 +93,7 @@ export function renderDriverView(appContainer) {
 
         <!-- REROUTE INTERVENTION CARD / BANNER -->
         ${showRerouteRequired ? `
-          <div class="absolute bottom-6 left-4 right-4 z-[1000] hud-panel-danger rounded-2xl p-6 border-2 border-rose-500 bg-command-950/98 shadow-2xl space-y-4 pointer-events-auto">
+          <div class="absolute bottom-6 left-4 right-4 z-[1000] hud-panel-danger rounded-2xl p-6 border-2 border-rose-500 bg-command-950/98 shadow-2xl space-y-4 pointer-events-auto max-h-[80vh] overflow-y-auto">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
@@ -101,26 +107,40 @@ export function renderDriverView(appContainer) {
             </div>
 
             <div class="p-3.5 rounded-xl bg-rose-950/50 border border-rose-900/80 text-xs text-rose-200 font-mono">
-              <strong>Incident:</strong> Landslide probability spiked to ${environment.landslideProb}% at Sonapur (Km 142). Rain rate: ${environment.rainfall} mm/hr. Corridor accessibility cut off.
+              <strong>Incident Alert:</strong> Roadway cut off ahead. ${environment.landslideProb >= 50 ? `Severe Landslides & Rockfall detected (${environment.landslideProb}% hazard).` : `Extreme Monsoon Inundation (${environment.rainfall} mm/hr).`} Immediate diversion required.
             </div>
 
-            <div class="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-900/80 flex items-center justify-between text-xs font-mono">
-              <div>
-                <span class="text-emerald-400 font-bold">Recommended Alternate: Route B (NH-27 / Umrangso Bypass)</span>
-                <p class="text-slate-300 mt-1">348 km · 8h 20m ETA · Reinforced Rock Bedrock · Risk: 22% (LOW)</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-900/80 flex flex-col justify-between text-xs font-mono">
+                <div>
+                  <span class="text-emerald-400 font-bold">ROUTE B: Umrangso Ridge Bypass</span>
+                  <p class="text-slate-300 mt-1">348 km · Reinforced Bedrock · Risk: 22% (LOW)</p>
+                </div>
+                <button id="btn-accept-route-b" class="mt-3 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs font-mono transition flex items-center justify-center shadow-lg shadow-emerald-950">
+                  Divert to Route B
+                </button>
               </div>
-              <span class="text-emerald-400 font-bold text-sm bg-emerald-950 px-3 py-1 rounded border border-emerald-800">94.6% Conf</span>
+
+              <div class="p-3.5 rounded-xl bg-purple-950/50 border border-purple-900/80 flex flex-col justify-between text-xs font-mono">
+                <div>
+                  <span class="text-purple-400 font-bold">ROUTE C: Northern Ridge Bypass</span>
+                  <p class="text-slate-300 mt-1">380 km · Via Tezpur & Dimapur · Risk: 34% (BACKUP)</p>
+                </div>
+                <button id="btn-accept-route-c" class="mt-3 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs font-mono transition flex items-center justify-center shadow-lg shadow-purple-950">
+                  Divert to Route C
+                </button>
+              </div>
             </div>
 
             <div class="flex flex-col sm:flex-row items-center gap-3 pt-1">
-              <button id="btn-accept-route-b" class="flex-1 py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs font-mono transition flex items-center justify-center shadow-lg shadow-emerald-950">
-                ACCEPT REROUTE (SWITCH TO ROUTE B)
+              <button id="btn-request-drone" class="flex-1 py-3 px-4 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 font-mono font-bold text-xs border border-cyan-500/50 transition flex items-center justify-center gap-1.5">
+                <span>🚁 Request Emergency Drone Airlift</span>
               </button>
               <button id="btn-decline-reroute" class="py-3 px-5 rounded-xl bg-command-800 hover:bg-command-750 text-slate-300 text-xs font-mono font-medium border border-command-border">
-                DECLINE
+                Decline & Hold
               </button>
               <button id="btn-call-dispatch" class="py-3 px-5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 text-xs font-mono font-bold border border-cyan-500/40">
-                CONTACT DISPATCH
+                Contact Dispatch
               </button>
             </div>
           </div>
@@ -265,23 +285,47 @@ export function renderDriverView(appContainer) {
       sounds.speakDispatch('Route B accepted. Navigation guidance updated via Umrangso bypass.');
     });
 
+    appContainer.querySelector('#btn-accept-route-c')?.addEventListener('click', () => {
+      sounds.playSuccess();
+      store.acceptRouteC(vehicle.id || 'TRUCK-07');
+      sounds.speakDispatch('Route C contingency engaged. Guidance updated via Tezpur northern ridge.');
+    });
+
+    appContainer.querySelector('#btn-request-drone')?.addEventListener('click', () => {
+      sounds.playEmergencyAlert();
+      store.launchDroneAtPin({
+        originGps: [26.1820, 91.7580],
+        targetGps: vehicle.coordinates,
+        targetName: vehicle.currentLocationName || 'Isolated Unit Location',
+        payload: 'Emergency Blood Units & Anti-Venom Kit'
+      });
+      sounds.speakDispatch('Emergency drone airlift launched to your GPS location. Hold position.');
+      alert('Emergency Drone Lifeline dispatched from Guwahati Command directly to your coordinates!');
+    });
+
     appContainer.querySelector('#btn-decline-reroute')?.addEventListener('click', () => {
-      alert('Reroute advisory deferred. Control Room alerted.');
+      alert('Reroute advisory deferred. Holding position at current waypoint.');
     });
 
     appContainer.querySelector('#btn-call-dispatch')?.addEventListener('click', () => {
       sounds.playPttPress();
       store.sendPushToTalkMessage({
-        sender: 'Driver (TRUCK-07)',
-        text: 'TRUCK-07 calling Control Room: Standing by at Nongpoh-Shillong junction for instructions.'
+        sender: `Driver (${vehicle.driverName || vehicle.id})`,
+        text: `${vehicle.id} calling Control Room: Road blocked ahead. Requesting live C2 instructions.`
       });
-      sounds.speakDispatch('Dispatch here, loud and clear TRUCK-07.');
+      sounds.speakDispatch('Dispatch here, loud and clear. Route guidance updated.');
     });
 
     // Drive Forward next waypoint
     appContainer.querySelector('#btn-driver-drive-step')?.addEventListener('click', () => {
       sounds.playSuccess();
       store.advanceVehicle(vehicle.id || 'TRUCK-07');
+    });
+
+    // Reverse / Step Back previous waypoint
+    appContainer.querySelector('#btn-driver-drive-back')?.addEventListener('click', () => {
+      sounds.playSuccess();
+      store.reverseVehicle(vehicle.id || 'TRUCK-07');
     });
 
     appContainer.querySelector('#btn-driver-change-port')?.addEventListener('click', () => {

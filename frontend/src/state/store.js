@@ -1341,6 +1341,111 @@ class Store {
     return vehicle;
   }
 
+  // Reverse / Step Back Vehicle to Previous Safe Waypoint
+  reverseVehicle(vehicleId = 'TRUCK-07') {
+    const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
+    if (!vehicle) return;
+
+    let waypoints = [];
+    if (vehicle.status === 'REROUTED' || vehicle.assignedRoute === 'ROUTE_B_DIVERSION') {
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
+        { coords: [25.9610, 91.8845], name: 'Nongpoh Checkpoint' },
+        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
+        { coords: [25.5680, 92.4200], name: 'Nartiang Monolith Pass' },
+        { coords: [25.6400, 92.6800], name: 'Khanduli Ridge Connector' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass (Route B)' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    } else if (vehicle.assignedRoute === 'ROUTE_C') {
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Base' },
+        { coords: [26.4500, 92.4000], name: 'Morigaon North' },
+        { coords: [26.6500, 92.7900], name: 'Tezpur River Bridge' },
+        { coords: [26.5200, 93.9700], name: 'Golaghat Arterial' },
+        { coords: [25.9000, 93.7300], name: 'Dimapur Approach' },
+        { coords: [25.4500, 93.2000], name: 'Haflong East Ridge' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    } else if (vehicle.assignedRoute === 'ROUTE_B') {
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
+        { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
+        { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
+        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+        { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    } else {
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
+        { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
+        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+        { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
+        { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+        { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
+        { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    }
+
+    let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
+    let prevIdx = Math.max(0, curIdx - 1);
+
+    vehicle.currentWaypointIdx = prevIdx;
+    vehicle.coordinates = [...waypoints[prevIdx].coords];
+    vehicle.currentLocationName = waypoints[prevIdx].name;
+    vehicle.progressPct = Math.round((prevIdx / (waypoints.length - 1)) * 100);
+    vehicle.speed = 35;
+    vehicle.eta = `${Math.max(1, waypoints.length - prevIdx)}h 20m`;
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      title: `GPS REVERSE STEP: ${vehicle.id}`,
+      desc: `Reversed to safety junction ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}].`,
+      type: 'info'
+    });
+
+    // Broadcast over WebSocket to sync all portals/screens
+    socketClient.send('REVERSE_VEHICLE', { vehicleId: vehicle.id || vehicleId });
+
+    this.notify();
+    return vehicle;
+  }
+
+  // Accept Route C Contingency (if Route A and B are both blocked)
+  acceptRouteC(vehicleId = 'TRUCK-07') {
+    const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
+    if (vehicle) {
+      vehicle.assignedRoute = 'ROUTE_C';
+      vehicle.activeCorridorId = 'corridor-route-c';
+      vehicle.currentLocationName = 'Tezpur-Golaghat Northern Ridge Highway (Route C)';
+      vehicle.coordinates = [26.6500, 92.7900]; // Tezpur Bridge
+      vehicle.currentWaypointIdx = 2;
+      vehicle.progressPct = 35;
+      vehicle.speed = 55;
+      vehicle.status = 'REROUTED';
+      vehicle.eta = '6h 15m';
+      vehicle.riskLevel = 'LOW';
+    }
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      title: `CONTINGENCY REROUTE: ROUTE C (NORTHERN RIDGE)`,
+      desc: `Both Route A & B bypassed. Dispatched unit ${vehicle?.id || vehicleId} diverted via Route C (Tezpur-Dimapur ridge).`,
+      type: 'success'
+    });
+
+    socketClient.send('ACCEPT_REROUTE', { vehicleId: vehicle?.id || vehicleId, route: 'ROUTE_C' });
+
+    this.notify();
+    return vehicle;
+  }
+
   // Accept Route B Reroute with Mid-Route Connector
   acceptReroute(vehicleId = 'TRUCK-07') {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
