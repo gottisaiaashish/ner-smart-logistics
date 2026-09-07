@@ -41,24 +41,24 @@ export function renderControlRoomView(appContainer) {
       <!-- LEFT / CENTER: Large GIS Tactical Map -->
       <section class="flex-1 flex flex-col h-full relative border-r border-command-border min-w-0">
         
-        <!-- Top Executive Briefing Banner -->
-        <div class="absolute top-4 left-4 right-4 z-[1000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 hud-panel rounded-xl p-3.5 border border-cyan-500/30 shadow-2xl pointer-events-auto">
-          <div class="flex items-center gap-3.5 flex-1 min-w-0">
+        <!-- Top Executive Briefing Sub-Header Bar (Clean Non-Overlapping Layout) -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 py-2.5 bg-command-900/95 border-b border-command-border z-20 shrink-0 shadow-md">
+          <div class="flex items-center gap-3 flex-1 min-w-0">
             <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0"></span>
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">SITUATION BRIEFING</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-command-800 text-slate-300 border border-command-border uppercase">
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-command-950 text-slate-300 border border-command-border uppercase">
                   ${activeScenarioPreset.replace('_', ' ')}
                 </span>
               </div>
-              <p class="text-xs text-slate-200 font-medium truncate mt-1" title="${executiveSummary}">
+              <p class="text-xs text-slate-200 font-medium truncate mt-0.5">
                 ${executiveSummary}
               </p>
             </div>
           </div>
 
-          <!-- Action Button -->
+          <!-- Action Buttons -->
           <div class="flex items-center gap-2 shrink-0">
             <button id="btn-banner-open-dispatch" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition shadow-md shadow-emerald-950 flex items-center gap-1.5">
               <span>+ Dispatch Checkpost Vehicle</span>
@@ -70,7 +70,7 @@ export function renderControlRoomView(appContainer) {
         </div>
 
         <!-- GIS Map Container -->
-        <div id="gis-map-container" class="flex-1 w-full relative z-0 min-h-0 pt-16"></div>
+        <div id="gis-map-container" class="flex-1 w-full relative z-0 min-h-0"></div>
 
         <!-- Bottom Timeline Feed Drawer: Live System Causality Stream -->
         <div class="h-44 bg-command-900/95 backdrop-blur-md border-t border-command-border flex flex-col z-10 shrink-0">
