@@ -45,7 +45,7 @@ export function renderDriverView(appContainer) {
         <!-- Large Turn-by-Turn HUD Banner at Top of Map -->
         <div class="absolute top-4 left-4 right-4 z-[1000] flex flex-col sm:flex-row gap-3 pointer-events-auto">
           
-          <!-- Turn Instruction Card -->
+          <!-- Turn Instruction Card (Google Maps Style) -->
           <div class="hud-panel rounded-xl p-4 border border-cyan-500/40 shadow-2xl flex items-center justify-between gap-5 flex-1">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-xl ${isRerouted ? 'bg-emerald-600 text-white' : 'bg-cyan-600 text-white'} flex items-center justify-center font-extrabold text-2xl shadow-md font-mono shrink-0">
@@ -53,9 +53,8 @@ export function renderDriverView(appContainer) {
               </div>
               <div>
                 <div class="text-[10px] font-mono text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-                  <span>${isRerouted ? 'AI ROUTE B ENGAGED' : 'PRIMARY ROUTE A'}</span>
-                  <span class="text-slate-400">· Port: <strong class="text-emerald-400">${vehicle.portCode || 'PORT-7890'}</strong></span>
-                  <span class="text-slate-400">· Cargo: <strong class="text-rose-400">${vehicle.cargoPriority || vehicle.priority || 'CRITICAL'}</strong></span>
+                  <span>${isRerouted ? 'AI ROUTE B ENGAGED (SAFE BYPASS)' : 'PRIMARY ROUTE A (NH-6 ARTERIAL)'}</span>
+                  <span class="text-slate-400">· Port: <strong class="text-emerald-400 font-mono px-1.5 py-0.5 rounded bg-command-950 border border-emerald-500/40">${vehicle.portCode || 'PORT-7890'}</strong></span>
                 </div>
                 <div class="text-sm font-bold text-white mt-0.5">
                   ${isRerouted ? 'Follow Umrangso North Cachar Bypass toward Silchar District Hospital' : 'Continue along NH-6 toward Shillong-Sonapur Chokepoint'}
@@ -69,9 +68,14 @@ export function renderDriverView(appContainer) {
             </div>
           </div>
 
+          <!-- Enter Another Port Code / Change Ride -->
+          <button id="btn-driver-change-port" class="hud-panel px-4 py-3 rounded-xl border border-cyan-500/40 hover:border-cyan-400 text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-2 transition shadow-md">
+            <span>🔑 Enter Port Code</span>
+          </button>
+
           <!-- Quick Offline Mode Toggle Button -->
           <button id="btn-driver-offline-toggle" class="hud-panel px-4 py-3 rounded-xl border border-command-border text-xs font-mono font-medium flex items-center justify-center gap-2 transition ${driverContext.isOfflineMode ? 'bg-amber-600/30 text-amber-300 border-amber-500' : 'text-slate-300 hover:text-white'}">
-            <span>${driverContext.isOfflineMode ? 'Offline Mode Active' : 'Simulate Mesh Net'}</span>
+            <span>${driverContext.isOfflineMode ? 'Offline Active' : 'Mesh Net'}</span>
           </button>
 
         </div>
@@ -266,6 +270,20 @@ export function renderDriverView(appContainer) {
         text: 'TRUCK-07 calling Control Room: Standing by at Nongpoh-Shillong junction for instructions.'
       });
       sounds.speakDispatch('Dispatch here, loud and clear TRUCK-07.');
+    });
+
+    appContainer.querySelector('#btn-driver-change-port')?.addEventListener('click', () => {
+      const code = prompt('Enter Checkpost Port Access Code (e.g. PORT-7890 or your Checkpost Code):', vehicle.portCode || 'PORT-7890');
+      if (code && code.trim()) {
+        const res = store.loginWithPortCode(code.trim());
+        if (res.success) {
+          sounds.playSuccess();
+          sounds.speakDispatch(`Connecting to vehicle ${code.trim()}. Navigation HUD active.`);
+        } else {
+          sounds.playEmergencyAlert();
+          alert(res.message || 'Invalid Port Code');
+        }
+      }
     });
 
     appContainer.querySelector('#btn-driver-offline-toggle')?.addEventListener('click', () => {
