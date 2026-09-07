@@ -12,9 +12,9 @@ import { sounds } from '../audio/sound-effects.js';
 export function renderDriverView(appContainer) {
   const { vehicles, driverContext, aiIntelligence, routesEvaluation, environment } = store.state;
   const vehicle = vehicles.find(v => v.id === driverContext.activeVehicleId) || vehicles[0];
-
   const isRerouted = vehicle.status === 'REROUTED';
-  const showRerouteRequired = (aiIntelligence.accessibilityRiskPct >= 65 || routesEvaluation.routeA.riskPct >= 65) && !isRerouted;
+  const hasActiveHazard = (store.state.customMissions || []).some(m => m.type === 'HAZARD_INJECTION');
+  const showRerouteRequired = (aiIntelligence.accessibilityRiskPct >= 45 || routesEvaluation.routeA.riskPct >= 45 || environment.landslideProb >= 40 || environment.rainfall >= 30 || hasActiveHazard) && !isRerouted;
 
   appContainer.innerHTML = `
     <!-- Top Nav Header -->
