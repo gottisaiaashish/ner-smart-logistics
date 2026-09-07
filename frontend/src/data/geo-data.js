@@ -95,6 +95,75 @@ export const CORRIDORS = {
     vulnerabilities: ['Long transit distance (+65 km)', 'Higher fuel consumption']
   },
 
+  // CONNECTOR 1: Jowai -> Nartiang -> Khanduli -> Umrangso Cross-Ridge Connector (SH-6)
+  CONNECTOR_JOWAI_UMRANGSO: {
+    id: 'corridor-conn-jowai-umrangso',
+    code: 'CONN_JOWAI_UMRANGSO',
+    name: 'Jowai-Umrangso Cross-Ridge Connector (SH-6)',
+    shortName: 'Jowai ↔ Umrangso Link',
+    distanceKm: 88,
+    distanceStr: '88 km cross-link',
+    normalDuration: '2h 10m',
+    baseRiskScore: 16,
+    waypoints: [
+      [25.4520, 92.2030], // Jowai (Route A)
+      [25.5680, 92.4200], // Nartiang Monolith Junction
+      [25.6400, 92.6800], // Khanduli Border Post
+      [25.4120, 92.9820]  // Umrangso (Route B)
+    ]
+  },
+
+  // CONNECTOR 2: Khliehriat -> Saipung -> Harangajao Mountain Cut (SH-17 Bypass)
+  CONNECTOR_KHLIEHRIAT_HARANGAJAO: {
+    id: 'corridor-conn-khliehriat-harangajao',
+    code: 'CONN_KHLIEHRIAT_HARANGAJAO',
+    name: 'Khliehriat-Saipung-Harangajao Cut (SH-17)',
+    shortName: 'Khliehriat ↔ Harangajao Cut',
+    distanceKm: 72,
+    distanceStr: '72 km mountain cut',
+    normalDuration: '1h 50m',
+    baseRiskScore: 19,
+    waypoints: [
+      [25.1840, 92.3560], // Khliehriat (Route A)
+      [25.3200, 92.6100], // Saipung Reserve Post
+      [25.1820, 92.8120]  // Harangajao (Route B)
+    ]
+  },
+
+  // CONNECTOR 3: Shillong -> Mawlasnai -> Jagiroad Cross-Valley Link
+  CONNECTOR_SHILLONG_JAGIROAD: {
+    id: 'corridor-conn-shillong-jagiroad',
+    code: 'CONN_SHILLONG_JAGIROAD',
+    name: 'Shillong-Mawlasnai-Jagiroad Link (SH-3)',
+    shortName: 'Shillong ↔ Jagiroad Valley Link',
+    distanceKm: 94,
+    distanceStr: '94 km valley link',
+    normalDuration: '2h 25m',
+    baseRiskScore: 15,
+    waypoints: [
+      [25.5788, 91.8933], // Shillong (Route A)
+      [25.8200, 92.0100], // Mawlasnai Pass
+      [26.1820, 92.0540]  // Jagiroad (Route B)
+    ]
+  },
+
+  // CONNECTOR 4: Lumding -> Haflong -> Dimapur Lateral
+  CONNECTOR_LUMDING_DIMAPUR: {
+    id: 'corridor-conn-lumding-dimapur',
+    code: 'CONN_LUMDING_DIMAPUR',
+    name: 'Lumding-Haflong-Dimapur Ridge Arterial',
+    shortName: 'Lumding ↔ Dimapur Ridge',
+    distanceKm: 82,
+    distanceStr: '82 km ridge arterial',
+    normalDuration: '1h 45m',
+    baseRiskScore: 20,
+    waypoints: [
+      [25.7510, 93.1750], // Lumding (Route B)
+      [25.4500, 93.2000], // Haflong East (Route C)
+      [25.9000, 93.7300]  // Dimapur (Route C)
+    ]
+  },
+
   // NH-102: Imphal -> Thoubal -> Moreh Border Corridor
   NH102_MANIPUR: {
     id: 'corridor-nh102',

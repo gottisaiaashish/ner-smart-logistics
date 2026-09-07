@@ -265,6 +265,50 @@ export class GisMap {
       if (this.onRoadClick) this.onRoadClick('corridor-nh13-sela');
     });
     nh13Line.addTo(this.layers.corridors);
+
+    // 6. INTERMEDIATE CONNECTORS & DIVERSION ROADS
+    const connectors = [
+      {
+        data: CORRIDORS.CONNECTOR_JOWAI_UMRANGSO,
+        color: '#38bdf8', // Cyan
+        name: 'Jowai ↔ Umrangso Cross-Ridge Connector (SH-6)'
+      },
+      {
+        data: CORRIDORS.CONNECTOR_KHLIEHRIAT_HARANGAJAO,
+        color: '#fbbf24', // Amber
+        name: 'Khliehriat ↔ Harangajao Mountain Cut (SH-17)'
+      },
+      {
+        data: CORRIDORS.CONNECTOR_SHILLONG_JAGIROAD,
+        color: '#34d399', // Emerald
+        name: 'Shillong ↔ Jagiroad Valley Link (SH-3)'
+      },
+      {
+        data: CORRIDORS.CONNECTOR_LUMDING_DIMAPUR,
+        color: '#c084fc', // Purple
+        name: 'Lumding ↔ Haflong ↔ Dimapur Lateral Link'
+      }
+    ];
+
+    connectors.forEach(conn => {
+      if (!conn.data || !conn.data.waypoints) return;
+      const connLine = L.polyline(conn.data.waypoints, {
+        color: conn.color,
+        weight: 3.8,
+        opacity: 0.85,
+        dashArray: '4, 6'
+      });
+
+      connLine.bindTooltip(`
+        <div class="font-sans text-xs p-1">
+          <div class="font-bold text-cyan-300">${conn.name}</div>
+          <div class="text-slate-300 text-[11px] mt-0.5">Emergency Inter-Corridor Feeder Route</div>
+          <div class="text-slate-400 font-mono text-[10px]">${conn.data.distanceStr || 'Cross-Link'} · Risk: ${conn.data.baseRiskScore || 15}%</div>
+        </div>
+      `, { sticky: true });
+
+      connLine.addTo(this.layers.corridors);
+    });
   }
 
   renderRiverGauges() {

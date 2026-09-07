@@ -1275,26 +1275,46 @@ class Store {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (!vehicle) return;
 
-    const isRouteB = vehicle.assignedRoute === 'ROUTE_B';
-    const waypoints = isRouteB ? [
-      { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
-      { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
-      { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
-      { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
-      { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
-      { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
-      { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
-      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-    ] : [
-      { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
-      { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
-      { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
-      { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
-      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
-      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
-      { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
-      { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
-    ];
+    // Determine path based on assigned route and reroute status
+    let waypoints = [];
+    if (vehicle.status === 'REROUTED' || vehicle.assignedRoute === 'ROUTE_B_DIVERSION') {
+      // Mid-route diversion via Jowai-Umrangso connector onto Route B
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
+        { coords: [25.9610, 91.8845], name: 'Nongpoh Checkpoint' },
+        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
+        { coords: [25.5680, 92.4200], name: 'Nartiang Monolith Pass' },
+        { coords: [25.6400, 92.6800], name: 'Khanduli Ridge Connector' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass (Route B)' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    } else if (vehicle.assignedRoute === 'ROUTE_B') {
+      // Standard Route B through Assam valley
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Staging Depot' },
+        { coords: [26.1820, 92.0540], name: 'Jagiroad Bypass' },
+        { coords: [26.3450, 92.6840], name: 'Nagaon Junction' },
+        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
+        { coords: [25.7510, 93.1750], name: 'Lumding Ridge' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Bypass' },
+        { coords: [25.1820, 92.8120], name: 'Harangajao Bridge' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    } else {
+      // Primary Route A
+      waypoints = [
+        { coords: [26.1445, 91.7362], name: 'Guwahati Central Medical Depot' },
+        { coords: [25.9610, 91.8845], name: 'NH-6 Nongpoh Waypoint' },
+        { coords: [25.5788, 91.8933], name: 'Shillong Arterial Hub' },
+        { coords: [25.4520, 92.2030], name: 'Jowai Mountain Pass' },
+        { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
+        { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & Chokepoint' },
+        { coords: [24.9750, 92.5420], name: 'Kalain Valley' },
+        { coords: [24.8333, 92.7789], name: 'Silchar District Hospital (Destination)' }
+      ];
+    }
 
     let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
     let nextIdx = curIdx + 1;
@@ -1305,7 +1325,7 @@ class Store {
     vehicle.currentLocationName = waypoints[nextIdx].name;
     vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
     vehicle.speed = Math.floor(46 + Math.random() * 12);
-    vehicle.eta = `${Math.max(1, 8 - nextIdx)}h ${Math.floor(10 + Math.random() * 40)}m`;
+    vehicle.eta = `${Math.max(1, waypoints.length - nextIdx)}h ${Math.floor(10 + Math.random() * 40)}m`;
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -1321,26 +1341,26 @@ class Store {
     return vehicle;
   }
 
-  // Accept Route B Reroute
+  // Accept Route B Reroute with Mid-Route Connector
   acceptReroute(vehicleId = 'TRUCK-07') {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (vehicle) {
-      vehicle.assignedRoute = 'ROUTE_B';
-      vehicle.activeCorridorId = 'corridor-route-b';
-      vehicle.currentLocationName = 'Umrangso Safe Rock Bypass (Route B)';
-      vehicle.coordinates = [25.4120, 92.9820];
-      vehicle.currentWaypointIdx = 5;
-      vehicle.progressPct = 65;
+      vehicle.assignedRoute = 'ROUTE_B_DIVERSION';
+      vehicle.activeCorridorId = 'corridor-conn-jowai-umrangso';
+      vehicle.currentLocationName = 'Jowai-Umrangso Connector (SH-6 Bypass)';
+      vehicle.coordinates = [25.5680, 92.4200]; // Nartiang Monolith Pass
+      vehicle.currentWaypointIdx = 4;
+      vehicle.progressPct = 48;
       vehicle.speed = 52;
       vehicle.status = 'REROUTED';
-      vehicle.eta = '3h 20m';
+      vehicle.eta = '3h 45m';
       vehicle.riskLevel = 'LOW';
     }
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      title: `REROUTE CONFIRMED: ${vehicle?.id || vehicleId}`,
-      desc: `Driver diverted successfully onto Route B (Umrangso bypass). Delivery safety preserved.`,
+      title: `MID-CORRIDOR REROUTE CONFIRMED: ${vehicle?.id || vehicleId}`,
+      desc: `Driver diverted via Jowai-Nartiang-Umrangso connector (SH-6) onto Route B. Blocked Sonapur chokepoint successfully avoided.`,
       type: 'success'
     });
 
