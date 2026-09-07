@@ -1,0 +1,16 @@
+{
+  "name": "ner-smart-logistics-backend",
+  "version": "1.0.0",
+  "description": "Real-time AI Logistics & Disaster Management Command C2 Server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ws": "^8.17.1"
+  }
+}
