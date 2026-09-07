@@ -1371,6 +1371,78 @@ class Store {
     return vehicle;
   }
 
+  // Checkpost Vehicle Dispatch & Port Code Generator
+  dispatchVehicle(dispatchData) {
+    const portNumber = Math.floor(1000 + Math.random() * 9000);
+    const portCode = `PORT-${portNumber}`;
+    const vehicleId = `TRUCK-${portNumber.toString().slice(-2)}`;
+
+    const newVehicle = {
+      id: vehicleId,
+      vehicleId,
+      name: `Lifeline Unit ${vehicleId}`,
+      portCode,
+      registration: dispatchData.vehicleNumber || `AS-01-EE-${portNumber}`,
+      driverName: dispatchData.driverName || 'Designated Checkpost Driver',
+      driverPhone: dispatchData.driverPhone || '+91 94350-' + portNumber,
+      vehicleType: dispatchData.vehicleType || 'Refrigerated 4x4 Heavy Logistics Unit',
+      cargo: dispatchData.cargo || 'Essential Emergency Medical Supplies',
+      cargoType: dispatchData.vehicleType || 'Cold-Chain Medical',
+      priority: dispatchData.priority || 'CRITICAL',
+      origin: dispatchData.origin || 'Khanapara Checkpost Staging Hub, Guwahati',
+      destination: dispatchData.destination || 'District Civil Hospital, Silchar',
+      assignedRoute: 'ROUTE_A',
+      activeCorridorId: 'corridor-route-a',
+      status: 'IN_TRANSIT',
+      speed: 48,
+      progressPct: 0,
+      currentWaypointIdx: 0,
+      coordinates: [26.1445, 91.7362],
+      currentLocationName: dispatchData.origin || 'Guwahati Staging Depot',
+      eta: '4h 15m',
+      riskLevel: 'LOW',
+      currentTemp: '-18.5°C',
+      tempRequirement: '-20°C to -15°C',
+      routeHistory: [
+        { time: 'Just now', event: `Vehicle cleared at Checkpost. Port Code: ${portCode}. Route A assigned.` }
+      ]
+    };
+
+    // Replace or put at top of vehicles list
+    this.state.vehicles = this.state.vehicles.filter(v => v.id !== vehicleId);
+    this.state.vehicles.unshift(newVehicle);
+    this.state.driverContext.activeVehicleId = vehicleId;
+    this.state.selectedVehicleId = vehicleId;
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      title: `CHECKPOST DISPATCH: ${portCode}`,
+      desc: `${newVehicle.registration} (${newVehicle.cargo}) registered for ${newVehicle.destination}. Port Access Code: ${portCode}`,
+      type: 'success'
+    });
+
+    // Send PTT announcement
+    this.sendPushToTalkMessage({
+      sender: 'Guwahati Checkpost Dispatch',
+      text: `Unit ${newVehicle.registration} cleared at checkpost. Driver Port Code: ${portCode}. Navigation active on Route A.`
+    });
+
+    // Broadcast over WebSocket to backend
+    socketClient.send('CREATE_DISPATCH', {
+      vehicleNumber: newVehicle.registration,
+      vehicleType: newVehicle.vehicleType,
+      driverName: newVehicle.driverName,
+      driverPhone: newVehicle.driverPhone,
+      cargo: newVehicle.cargo,
+      origin: newVehicle.origin,
+      destination: newVehicle.destination,
+      priority: newVehicle.priority
+    });
+
+    this.notify();
+    return newVehicle;
+  }
+
   // Driver Login via Checkpost Port Code
   loginWithPortCode(code) {
     if (!code) return { success: false, message: 'Port Code is required' };
