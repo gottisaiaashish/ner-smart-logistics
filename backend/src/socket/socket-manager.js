@@ -70,6 +70,9 @@ class SocketManager {
       case 'LAUNCH_HAZARD':
         updatedState = systemState.launchHazard(payload);
         break;
+      case 'REPORT_CV_HAZARD':
+        updatedState = systemState.reportCvHazard(payload);
+        break;
       case 'SEND_PTT_MESSAGE':
         updatedState = systemState.sendPttMessage(payload);
         break;

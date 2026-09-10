@@ -4,6 +4,7 @@
  */
 
 import { NER_CENTER, NER_DEFAULT_ZOOM, CORRIDORS, DISASTER_ZONES, RIVER_GAUGES, WEATHER_OBSERVATIONS, NER_REGIONS } from '../data/geo-data.js';
+import { REAL_ROAD_POLYLINES } from '../data/real-road-polylines.js';
 import { store } from '../state/store.js';
 
 export class GisMap {
@@ -56,29 +57,46 @@ export class GisMap {
       attributionControl: false
     });
 
-    L.control.zoom({ position: 'topright' }).addTo(this.map);
+    if (!this.options.isDriverView) {
+      L.control.zoom({ position: 'topright' }).addTo(this.map);
+    }
 
-    // Clean Free Basemaps (Watermark-free)
-    // Dark Basemap (ESRI Dark Gray Canvas - 100% Free & Crisp)
+    // Google Maps Official Vector & Hybrid Tile Layers
+    this.tileLayers.googleRoad = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps Platform'
+    });
+
+    this.tileLayers.googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps Platform'
+    });
+
+    this.tileLayers.googleTerrain = L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps Platform'
+    });
+
+    this.tileLayers.googleTraffic = L.tileLayer('https://mt1.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps Platform'
+    });
+
+    // Control Room Tactical Dark Canvas
     this.tileLayers.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 16,
       attribution: 'Esri, HERE, Garmin, OpenStreetMap'
-    }).addTo(this.map);
-
-    // Reference Overlay (Street names & borders)
-    this.tileLayers.darkRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 16
-    }).addTo(this.map);
-
-    // Satellite Basemap (ESRI World Imagery)
-    this.tileLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 18
     });
 
-    // Topo Basemap (OpenTopoMap)
-    this.tileLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17
-    });
+    // Default to Official Google Maps Roadmap across all portals
+    this.tileLayers.googleRoad.addTo(this.map);
+    this.activeTile = 'googleRoad';
+
+    // Satellite Basemap (Google Satellite Hybrid)
+    this.tileLayers.satellite = this.tileLayers.googleSat;
+
+    // Topo Basemap (Google Terrain)
+    this.tileLayers.topo = this.tileLayers.googleTerrain;
 
     // Layer Groups
     this.layers.hazards = L.layerGroup().addTo(this.map);
@@ -90,8 +108,8 @@ export class GisMap {
 
     this.renderAll();
 
-    // Only render full tactical command HUD on Control Room and Simulator, NOT on Driver Navigation Cockpit
-    if (!this.options.isDriverView) {
+    // Only render full tactical command HUD if explicitly requested by standalone container
+    if (this.options.standaloneControls) {
       this.addTacticalHudControls();
     }
 
@@ -100,14 +118,29 @@ export class GisMap {
     }, 120);
   }
 
+  flyToRegion(regionCode) {
+    if (!this.map) return;
+    if (regionCode === 'ALL') {
+      this.map.flyTo(NER_CENTER, NER_DEFAULT_ZOOM, { duration: 1.2 });
+    } else {
+      const region = NER_REGIONS.find(r => r.id === regionCode);
+      if (region) {
+        this.map.flyTo(region.center, 9.2, { duration: 1.2 });
+      }
+    }
+  }
+
   setTileLayer(type) {
-    if (this.tileLayers[this.activeTile]) {
-      this.map.removeLayer(this.tileLayers[this.activeTile]);
-    }
-    if (this.tileLayers[type]) {
-      this.tileLayers[type].addTo(this.map);
-      this.activeTile = type;
-    }
+    if (!this.map || !this.map._container) return;
+    try {
+      if (this.tileLayers[this.activeTile] && this.map.hasLayer(this.tileLayers[this.activeTile])) {
+        this.map.removeLayer(this.tileLayers[this.activeTile]);
+      }
+      if (this.tileLayers[type]) {
+        this.tileLayers[type].addTo(this.map);
+        this.activeTile = type;
+      }
+    } catch (e) {}
   }
 
   toggleLayer(layerName) {
@@ -122,6 +155,11 @@ export class GisMap {
   }
 
   renderAll() {
+    if (this.options.isDriverView) {
+      this.renderDriverCleanNavigation();
+      return;
+    }
+
     this.renderHazards();
     this.renderCorridors();
     this.renderRiverGauges();
@@ -131,31 +169,219 @@ export class GisMap {
     this.renderCustomMissions();
   }
 
+  // 100% Clean Google Maps Style Turn-by-Turn Navigation for Driver Cockpit (Zero Clutter, 120 FPS Smooth)
+  renderDriverCleanNavigation() {
+    const { vehicles, driverContext } = store.state;
+    const vehicle = vehicles.find(v => (v.id && v.id === driverContext.activeVehicleId) || (v.vehicleId && v.vehicleId === driverContext.activeVehicleId) || (v.portCode && v.portCode === driverContext.activeVehicleId)) || vehicles[0];
+    const isRerouted = vehicle?.status === 'REROUTED' || vehicle?.assignedRoute === 'ROUTE_B_DIVERSION' || vehicle?.assignedRoute === 'ROUTE_B';
+    const hasActiveHazard = (store.state.customMissions || []).some(m => m.type === 'HAZARD_INJECTION');
+
+    // 2. Draw Active Navigation Route & Pins (Only on initialization or route change)
+    const routeKey = isRerouted ? 'ROUTE_B' : 'ROUTE_A';
+    if (!this.driverRouteInitialized || this.currentRouteKey !== routeKey || this.layers.corridors.getLayers().length === 0) {
+      this.layers.hazards.clearLayers();
+      this.layers.corridors.clearLayers();
+      this.layers.gauges.clearLayers();
+      this.layers.weather.clearLayers();
+      this.layers.incidents.clearLayers();
+      this.layers.vehicles.clearLayers();
+      this.driverVehicleMarker = null;
+
+      const activeRouteWaypoints = vehicle?.dynamicRoutePoints || (isRerouted ? (REAL_ROAD_POLYLINES.ROUTE_B_DIVERSION || CORRIDORS.ROUTE_B_DIVERSION.waypoints) : (REAL_ROAD_POLYLINES.ROUTE_A || CORRIDORS.ROUTE_A.waypoints));
+      const originCoords = activeRouteWaypoints[0] || [26.11586, 91.8016];
+      const destCoords = activeRouteWaypoints[activeRouteWaypoints.length - 1] || [24.83297, 92.77909];
+
+      // Underlay border (White casing)
+      const underlayLine = L.polyline(activeRouteWaypoints, {
+        color: '#ffffff',
+        weight: 9,
+        opacity: 0.95
+      });
+      underlayLine.addTo(this.layers.corridors);
+
+      // Active Route Polyline
+      const activeNavLine = L.polyline(activeRouteWaypoints, {
+        color: isRerouted ? '#10b981' : '#1a73e8',
+        weight: 5.5,
+        opacity: 1
+      });
+      activeNavLine.addTo(this.layers.corridors);
+
+      // Blocked hazard indicator
+      if (!vehicle?.dynamicRoutePoints && (isRerouted || hasActiveHazard)) {
+        const fullRouteA = REAL_ROAD_POLYLINES.ROUTE_A || CORRIDORS.ROUTE_A.waypoints;
+        const blockedCutoff = L.polyline(fullRouteA.slice(Math.floor(fullRouteA.length * 0.55), Math.floor(fullRouteA.length * 0.88)), {
+          color: '#dc2626',
+          weight: 6,
+          opacity: 0.9,
+          dashArray: '6, 6'
+        });
+        blockedCutoff.addTo(this.layers.corridors);
+
+        const hazardPinIcon = L.divIcon({
+          html: `
+            <div class="relative flex items-center justify-center">
+              <div class="w-8 h-8 rounded-full bg-rose-600 border-2 border-white shadow-xl flex items-center justify-center text-white font-bold text-xs">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+            </div>
+          `,
+          className: 'hazard-clean-pin',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        L.marker([25.1120, 92.3850], { icon: hazardPinIcon }).addTo(this.layers.hazards);
+      }
+
+      // Origin Pin (A)
+      const originPinIcon = L.divIcon({
+        html: `<div class="w-8 h-8 rounded-full bg-[#10b981] border-2 border-white shadow-xl flex items-center justify-center text-white font-black text-xs font-sans">A</div>`,
+        className: 'origin-clean-pin',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker(originCoords, { icon: originPinIcon }).addTo(this.layers.corridors);
+
+      // Destination Pin (B)
+      const destPinIcon = L.divIcon({
+        html: `<div class="relative flex flex-col items-center"><div class="w-8 h-8 rounded-full bg-[#dc2626] border-2 border-white shadow-2xl flex items-center justify-center text-white font-black text-xs font-sans">B</div><div class="w-2 h-2 bg-[#dc2626] rotate-45 -mt-1 shadow"></div></div>`,
+        className: 'dest-clean-pin',
+        iconSize: [32, 36],
+        iconAnchor: [16, 36]
+      });
+      L.marker(destCoords, { icon: destPinIcon }).addTo(this.layers.corridors);
+
+      this.driverRouteInitialized = true;
+      this.currentRouteKey = routeKey;
+    }
+
+    // 5. Driver Vehicle Navigation Puck (High-Performance 120 FPS In-Place Movement)
+    if (vehicle) {
+      const denseWps = store.getDenseWaypoints ? store.getDenseWaypoints(vehicle.assignedRoute) : [];
+      const curIdx = (vehicle.currentWaypointIdx !== undefined) ? vehicle.currentWaypointIdx : 0;
+      let curCoords = (denseWps[curIdx] && denseWps[curIdx].coords) || vehicle.coordinates || [26.11586, 91.8016];
+      vehicle.coordinates = curCoords;
+
+      let heading = 0;
+      if (denseWps.length > 0) {
+        const lookAheadIdx = Math.min(denseWps.length - 1, curIdx + 2);
+        if (lookAheadIdx > curIdx) {
+          heading = this.calculateBearing(curCoords, denseWps[lookAheadIdx].coords);
+        } else if (curIdx > 0) {
+          const prevIdx = Math.max(0, curIdx - 2);
+          heading = this.calculateBearing(denseWps[prevIdx].coords, curCoords);
+        }
+      }
+
+      window._driverCurrentHeading = heading;
+      this.currentHeading = heading;
+
+      if (this.driverVehicleMarker && this.layers.vehicles.hasLayer(this.driverVehicleMarker)) {
+        this.driverVehicleMarker.setLatLng(curCoords);
+        const iconEl = this.driverVehicleMarker.getElement();
+        if (iconEl) {
+          const svgEl = iconEl.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.transform = `rotate(${heading.toFixed(1)}deg)`;
+          }
+        }
+      } else {
+        const vehiclePuckIcon = L.divIcon({
+          html: `
+            <div class="relative flex items-center justify-center">
+              <!-- Blue Google Navigation Puck with Real-time Highway Orientation -->
+              <div class="w-10 h-10 rounded-full bg-[#1a73e8] border-[3px] border-white shadow-2xl flex items-center justify-center text-white shadow-blue-900/60 z-20">
+                <svg class="w-6 h-6 fill-current transition-transform duration-300 ease-out" style="transform: rotate(${heading.toFixed(1)}deg);" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/></svg>
+              </div>
+            </div>
+          `,
+          className: 'driver-nav-puck',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        });
+        this.driverVehicleMarker = L.marker(curCoords, { icon: vehiclePuckIcon, zIndexOffset: 1000 });
+        this.driverVehicleMarker.addTo(this.layers.vehicles);
+      }
+
+      if (this.map) {
+        this.map.panTo(curCoords, { animate: true, duration: 0.35, easeLinearity: 0.1 });
+      }
+    }
+  }
+
+  // Calculate forward geographic azimuth/bearing between two [lat, lng] points
+  calculateBearing(p1, p2) {
+    if (!p1 || !p2 || (p1[0] === p2[0] && p1[1] === p2[1])) return 0;
+    const lat1 = (p1[0] * Math.PI) / 180;
+    const lon1 = (p1[1] * Math.PI) / 180;
+    const lat2 = (p2[0] * Math.PI) / 180;
+    const lon2 = (p2[1] * Math.PI) / 180;
+
+    const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+    const bearingRad = Math.atan2(y, x);
+    const bearingDeg = ((bearingRad * 180) / Math.PI + 360) % 360;
+    return bearingDeg;
+  }
+
   renderHazards() {
     this.layers.hazards.clearLayers();
 
     DISASTER_ZONES.forEach(zone => {
-      const polygon = L.polygon(zone.polygon, {
-        color: zone.color,
-        fillColor: zone.fillColor,
-        fillOpacity: zone.fillOpacity,
-        weight: 2,
-        dashArray: '5, 8'
+      let centerLat = 0, centerLng = 0;
+      if (zone.polygon && zone.polygon.length > 0) {
+        zone.polygon.forEach(p => { centerLat += p[0]; centerLng += p[1]; });
+        centerLat /= zone.polygon.length;
+        centerLng /= zone.polygon.length;
+      } else {
+        centerLat = zone.center ? zone.center[0] : 25.1120;
+        centerLng = zone.center ? zone.center[1] : 92.3850;
+      }
+
+      const isLandslide = zone.type === 'LANDSLIDE';
+      const color = isLandslide ? '#f43f5e' : '#0284c7';
+
+      // Clean, subtle circular radar zone (Zero ugly clutter polygons)
+      const circle = L.circle([centerLat, centerLng], {
+        radius: isLandslide ? 14000 : 18000,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.18,
+        weight: 1.5,
+        dashArray: '4, 4'
       });
 
-      polygon.bindTooltip(`
+      circle.bindTooltip(`
         <div class="font-sans text-xs p-1">
-          <div class="font-bold ${zone.type === 'LANDSLIDE' ? 'text-rose-400' : 'text-cyan-400'} uppercase tracking-wider flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full ${zone.type === 'LANDSLIDE' ? 'bg-rose-500' : 'bg-cyan-500'} animate-ping"></span>
+          <div class="font-bold ${isLandslide ? 'text-rose-400' : 'text-cyan-400'} uppercase tracking-wider flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full ${isLandslide ? 'bg-rose-500' : 'bg-cyan-500'} animate-ping"></span>
             ${zone.name}
           </div>
           <div class="text-slate-300 mt-1">Severity: <strong class="text-white">${zone.severity}</strong></div>
-          <div class="text-slate-400 font-mono text-[11px]">${zone.rainfallRate || zone.riverLevel}</div>
-          <div class="text-rose-300 font-mono font-bold mt-1">Disruption Probability: ${zone.riskScore}%</div>
+          <div class="text-slate-400 font-mono text-[11px]">${zone.rainfallRate || zone.riverLevel || 'Active Sensor'}</div>
+          <div class="text-rose-300 font-mono font-bold mt-1">Disruption Risk: ${zone.riskScore}%</div>
         </div>
       `, { sticky: true });
 
-      polygon.addTo(this.layers.hazards);
+      circle.addTo(this.layers.hazards);
+
+      // Add clean tactical icon badge
+      const badgeIcon = L.divIcon({
+        html: `
+          <div class="relative flex items-center justify-center cursor-pointer group">
+            <div class="w-7 h-7 rounded-full ${isLandslide ? 'bg-rose-600 border-2 border-white text-white' : 'bg-sky-600 border-2 border-white text-white'} shadow-xl flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            ${isLandslide ? '<div class="absolute -inset-1 rounded-full bg-rose-500/40 animate-ping"></div>' : ''}
+          </div>
+        `,
+        className: 'disaster-badge-icon',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const marker = L.marker([centerLat, centerLng], { icon: badgeIcon });
+      marker.addTo(this.layers.hazards);
     });
   }
 
@@ -173,7 +399,8 @@ export class GisMap {
     // If auto-rerouted via connector, Route A is split: Active Green up to Jowai diversion, and Blocked Red after Jowai through Sonapur
     if (isVehicleRerouted || hasHazard) {
       // Blocked section of Route A (Jowai -> Ladrymbai -> Khliehriat -> Sonapur -> Kalain)
-      const blockedSectionWaypoints = CORRIDORS.ROUTE_A.waypoints.slice(13, 21); // Jowai to Kalain
+      const fullRouteA = REAL_ROAD_POLYLINES.ROUTE_A || CORRIDORS.ROUTE_A.waypoints;
+      const blockedSectionWaypoints = fullRouteA.slice(Math.floor(fullRouteA.length * 0.55), Math.floor(fullRouteA.length * 0.88));
       const blockedLine = L.polyline(blockedSectionWaypoints, {
         color: '#f43f5e',
         weight: 5,
@@ -193,7 +420,7 @@ export class GisMap {
       blockedLine.addTo(this.layers.corridors);
 
       // ACTIVE AUTO-REROUTE PATH (Guwahati -> Shillong -> Jowai -> Nartiang -> Khanduli -> Umrangso -> Harangajao -> Silchar) - 100% VIBRANT GREEN
-      const activeNavLine = L.polyline(CORRIDORS.ROUTE_B_DIVERSION.waypoints, {
+      const activeNavLine = L.polyline(REAL_ROAD_POLYLINES.ROUTE_B_DIVERSION || CORRIDORS.ROUTE_B_DIVERSION.waypoints, {
         color: '#10b981',
         weight: 6.5,
         opacity: 1,
@@ -214,7 +441,7 @@ export class GisMap {
     } else {
       // Normal Route A Active in Green
       const routeAColor = isRouteAHighRisk ? '#f43f5e' : isRouteAMedRisk ? '#f59e0b' : '#10b981';
-      const routeALine = L.polyline(CORRIDORS.ROUTE_A.waypoints, {
+      const routeALine = L.polyline(REAL_ROAD_POLYLINES.ROUTE_A || CORRIDORS.ROUTE_A.waypoints, {
         color: routeAColor,
         weight: 5.5,
         opacity: 0.95,
@@ -235,7 +462,7 @@ export class GisMap {
 
     // 2. ROUTE B — AI Safe Alternate (NH-27 / Umrangso Bypass)
     const isRouteBRecommended = routesEvaluation.recommendedRouteId === 'ROUTE_B';
-    const routeBLine = L.polyline(CORRIDORS.ROUTE_B.waypoints, {
+    const routeBLine = L.polyline(REAL_ROAD_POLYLINES.ROUTE_B || CORRIDORS.ROUTE_B.waypoints, {
       color: '#059669',
       weight: isRouteBRecommended ? 4.5 : 3.5,
       opacity: 0.85,
@@ -471,6 +698,7 @@ export class GisMap {
       const isCriticalPriority = vehicle.priority === 'CRITICAL';
       const isEmergency = vehicle.riskLevel === 'CRITICAL' || vehicle.status === 'EMERGENCY';
 
+      const vehLabel = vehicle.id || vehicle.vehicleId || vehicle.portCode || 'TRUCK-07';
       const statusColor = isEmergency ? 'bg-rose-600' : isRerouted ? 'bg-emerald-600' : 'bg-cyan-600';
       const haloColor = isEmergency ? 'ring-rose-400 ring-4' : isSelected ? 'ring-cyan-400 ring-4' : '';
 
@@ -483,7 +711,7 @@ export class GisMap {
           <!-- Label Tag with Priority Indicator -->
           <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-command-900/95 border ${isCriticalPriority ? 'border-rose-500 text-rose-300' : 'border-cyan-500/60 text-white'} text-[10px] font-mono font-bold whitespace-nowrap shadow-xl flex items-center gap-1.5 z-40">
             ${isCriticalPriority ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>' : ''}
-            <span>${vehicle.driverName ? `${vehicle.driverName} (${vehicle.id})` : vehicle.id}</span>
+            <span>${vehicle.driverName ? `${vehicle.driverName} (${vehLabel})` : vehLabel}</span>
           </div>
 
           <!-- Pulsing Halo for Critical Emergency -->
@@ -551,6 +779,30 @@ export class GisMap {
           </div>
         `);
         hazardCircle.addTo(this.layers.hazards);
+
+        // Tactical Hazard Pin Marker
+        const hazardPinIcon = L.divIcon({
+          html: `
+            <div class="relative flex items-center justify-center cursor-pointer group">
+              <div class="w-9 h-9 rounded-2xl bg-rose-600 border-2 border-white shadow-2xl flex items-center justify-center text-white font-bold text-xs">
+                <svg class="w-5 h-5 text-white animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+              <div class="absolute -inset-1 rounded-2xl bg-rose-500/50 animate-ping"></div>
+            </div>
+          `,
+          className: 'tactical-hazard-pin',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        });
+        const hMarker = L.marker(gps, { icon: hazardPinIcon, zIndexOffset: 1500 });
+        hMarker.bindTooltip(`
+          <div class="font-sans text-xs p-1">
+            <div class="font-bold text-rose-400">CRITICAL HAZARD: ${m.hazardType || 'Landslide Obstruction'}</div>
+            <div class="text-white font-semibold">${m.name || 'Pinned Target'}</div>
+            <div class="text-rose-300 font-mono text-[10px] mt-0.5">GPS [${gps[0].toFixed(4)}, ${gps[1].toFixed(4)}] · Status: Impassable</div>
+          </div>
+        `);
+        hMarker.addTo(this.layers.hazards);
       } else if (m.type === 'DRONE_RELIEF' && m.originGps && m.targetGps) {
         // Drone Flight Vector Line
         const flightLine = L.polyline([m.originGps, m.targetGps], {
@@ -615,16 +867,22 @@ export class GisMap {
     const controlHud = document.createElement('div');
     controlHud.className = 'absolute top-3 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto select-none';
     controlHud.innerHTML = `
-      <!-- Basemap Selector -->
-      <div class="hud-panel rounded-xl p-1.5 flex items-center gap-1 shadow-2xl border border-command-border text-xs">
-        <button id="btn-map-dark" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'dark' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'}">
-          TACTICAL
+      <!-- Basemap Selector (5 Clean Google Modes) -->
+      <div class="hud-panel rounded-xl p-1.5 flex items-center gap-1 shadow-2xl border border-command-border text-xs bg-[#0b1329]/95 backdrop-blur-md">
+        <button id="btn-map-road" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'googleRoad' ? 'bg-cyan-500 text-slate-950 font-black shadow-md' : 'text-slate-300 hover:text-white'}">
+          MAP
         </button>
-        <button id="btn-map-sat" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'satellite' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'}">
+        <button id="btn-map-sat" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'googleSat' || this.activeTile === 'satellite' ? 'bg-cyan-500 text-slate-950 font-black shadow-md' : 'text-slate-300 hover:text-white'}">
           SATELLITE
         </button>
-        <button id="btn-map-topo" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'topo' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'}">
+        <button id="btn-map-topo" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'googleTerrain' || this.activeTile === 'topo' ? 'bg-cyan-500 text-slate-950 font-black shadow-md' : 'text-slate-300 hover:text-white'}">
           TERRAIN
+        </button>
+        <button id="btn-map-traffic" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'googleTraffic' ? 'bg-cyan-500 text-slate-950 font-black shadow-md' : 'text-slate-300 hover:text-white'}">
+          TRAFFIC
+        </button>
+        <button id="btn-map-dark" class="px-2.5 py-1 rounded-lg font-mono font-medium transition ${this.activeTile === 'dark' ? 'bg-cyan-500 text-slate-950 font-black shadow-md' : 'text-slate-300 hover:text-white'}">
+          NIGHT
         </button>
       </div>
 
@@ -658,17 +916,25 @@ export class GisMap {
 
     mapContainer.appendChild(controlHud);
 
-    // Bind Basemap Buttons
-    controlHud.querySelector('#btn-map-dark')?.addEventListener('click', (e) => {
-      this.setTileLayer('dark');
+    // Bind Basemap Buttons (5 Google Modes)
+    controlHud.querySelector('#btn-map-road')?.addEventListener('click', (e) => {
+      this.setTileLayer('googleRoad');
       this.updateTileButtonUI(e.target);
     });
     controlHud.querySelector('#btn-map-sat')?.addEventListener('click', (e) => {
-      this.setTileLayer('satellite');
+      this.setTileLayer('googleSat');
       this.updateTileButtonUI(e.target);
     });
     controlHud.querySelector('#btn-map-topo')?.addEventListener('click', (e) => {
-      this.setTileLayer('topo');
+      this.setTileLayer('googleTerrain');
+      this.updateTileButtonUI(e.target);
+    });
+    controlHud.querySelector('#btn-map-traffic')?.addEventListener('click', (e) => {
+      this.setTileLayer('googleTraffic');
+      this.updateTileButtonUI(e.target);
+    });
+    controlHud.querySelector('#btn-map-dark')?.addEventListener('click', (e) => {
+      this.setTileLayer('dark');
       this.updateTileButtonUI(e.target);
     });
 
@@ -699,7 +965,7 @@ export class GisMap {
 
     // Map Legend Overlay at Bottom Left
     const legendEl = document.createElement('div');
-    legendEl.className = 'absolute bottom-3 left-3 z-[1000] hud-panel rounded-xl p-2.5 shadow-2xl border border-command-border text-[11px] flex flex-col gap-1.5 pointer-events-auto hidden md:flex';
+    legendEl.className = 'absolute bottom-3 left-3 z-[1000] hud-panel rounded-xl p-2.5 shadow-2xl border border-command-border text-[11px] flex flex-col gap-1.5 pointer-events-auto hidden md:flex bg-[#0b1329]/95 backdrop-blur-md';
     legendEl.innerHTML = `
       <div class="font-mono font-bold text-slate-300 uppercase tracking-wider text-[10px] pb-1 border-b border-slate-700/60 flex items-center justify-between">
         <span>Evaluated Corridors Legend</span>
@@ -718,11 +984,11 @@ export class GisMap {
         <span>Route C (Emergency Ridge Contingency)</span>
       </div>
       <div class="flex items-center gap-2 text-slate-300">
-        <span class="w-3 h-3 rounded bg-rose-500/50 border border-rose-400"></span>
+        <span class="w-3 h-3 rounded-full bg-rose-500/60 border border-rose-400"></span>
         <span>Landslide / Rockfall Hazard Hotspot</span>
       </div>
       <div class="flex items-center gap-2 text-slate-300">
-        <span class="w-3 h-3 rounded bg-sky-500/50 border border-sky-400"></span>
+        <span class="w-3 h-3 rounded-full bg-sky-500/60 border border-sky-400"></span>
         <span>River Inundation Basin / Flood Lowland</span>
       </div>
     `;
@@ -730,11 +996,12 @@ export class GisMap {
   }
 
   updateTileButtonUI(activeBtn) {
+    if (!activeBtn || !activeBtn.parentElement) return;
     const parent = activeBtn.parentElement;
     parent.querySelectorAll('button').forEach(b => {
-      b.className = 'px-2.5 py-1 rounded-lg font-mono font-medium transition text-slate-400 hover:text-white';
+      b.className = 'px-2.5 py-1 rounded-lg font-mono font-medium transition text-slate-300 hover:text-white';
     });
-    activeBtn.className = 'px-2.5 py-1 rounded-lg font-mono font-medium transition bg-cyan-600 text-white font-bold';
+    activeBtn.className = 'px-2.5 py-1 rounded-lg font-mono font-medium transition bg-cyan-500 text-slate-950 font-black shadow-md';
   }
 
   updateAll() {

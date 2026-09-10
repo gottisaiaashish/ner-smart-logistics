@@ -113,6 +113,17 @@ function initApp() {
   isAppInitialized = true;
   renderApp();
   store.subscribe(() => {
+    // If user is currently in Driver Navigation view, update HUD and vehicle puck in-place without destroying Leaflet map
+    const rawHash = window.location.hash || '';
+    const activeRoute = rawHash.replace('#/', '').split('?')[0];
+    if (activeRoute === 'driver') {
+      if (typeof window._driverUpdateHudLive === 'function') {
+        const { vehicles, driverContext } = store.state;
+        const vehicle = vehicles.find(v => (v.id && v.id === driverContext.activeVehicleId) || (v.vehicleId && v.vehicleId === driverContext.activeVehicleId) || (v.portCode && v.portCode === driverContext.activeVehicleId)) || vehicles[0];
+        window._driverUpdateHudLive(vehicle);
+        return;
+      }
+    }
     renderApp();
   });
 }

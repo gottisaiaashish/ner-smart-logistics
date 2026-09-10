@@ -1,6 +1,6 @@
 /**
  * Authoritative Server-Side In-Memory State Store
- * Supports Checkpost Dispatches with Port Codes & Live Rerouting
+ * Supports Checkpost Dispatches with Port Codes, AI Risk Predictions, Live CV Dashcam Hazard Ingestion & Dynamic Rerouting
  */
 
 import { calculateAiRisk } from '../ai/risk-engine.js';
@@ -15,7 +15,9 @@ export const SCENARIO_PRESETS = {
     trafficDensity: 'LOW',
     bridgeAccessibility: '100% OPEN',
     floodSeverity: 'NONE',
-    networkConnectivity: 'ONLINE_4G_5G'
+    networkConnectivity: 'ONLINE_4G_5G',
+    soilMoistureIndex: 32,
+    slopeAngleDeg: 28
   },
   HEAVY_MONSOON: {
     name: 'Heavy Monsoon Squall',
@@ -26,7 +28,9 @@ export const SCENARIO_PRESETS = {
     trafficDensity: 'HEAVY',
     bridgeAccessibility: 'SINGLE_LANE',
     floodSeverity: 'MODERATE',
-    networkConnectivity: 'ONLINE_4G_5G'
+    networkConnectivity: 'ONLINE_4G_5G',
+    soilMoistureIndex: 78,
+    slopeAngleDeg: 42
   },
   LANDSLIDE: {
     name: 'Sonapur Major Landslide',
@@ -37,7 +41,9 @@ export const SCENARIO_PRESETS = {
     trafficDensity: 'CONGESTED',
     bridgeAccessibility: 'CLOSED',
     floodSeverity: 'SEVERE',
-    networkConnectivity: 'DEGRADED_MESH'
+    networkConnectivity: 'DEGRADED_MESH',
+    soilMoistureIndex: 94,
+    slopeAngleDeg: 48
   }
 };
 
@@ -63,9 +69,12 @@ class SystemState {
         assignedRoute: 'ROUTE_A',
         status: 'IN_TRANSIT',
         speed: 48,
-        progressPct: 15,
-        coordinates: [26.1100, 91.8200],
-        currentLocationName: 'NH-6 near Nongpoh-Shillong descent',
+        progressPct: 0,
+        currentWaypointIdx: 0,
+        coordinates: [26.11586, 91.8016],
+        originGps: [26.11586, 91.8016],
+        destGps: [24.83297, 92.77909],
+        currentLocationName: 'Khanapara Staging Hub, Guwahati',
         createdAt: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST'
       }
     ];
@@ -92,6 +101,7 @@ class SystemState {
 
     this.customMissions = [];
     this.timeline = [];
+    this.cvDetections = [];
 
     this.recomputeIntelligence();
   }
@@ -103,12 +113,15 @@ class SystemState {
       accessibilityRiskPct: aiResult.accessibilityRiskPct,
       statusLabel: aiResult.statusLabel,
       evaluationConfidence: aiResult.evaluationConfidence,
+      modelType: aiResult.modelType,
+      xaiContributions: aiResult.xaiContributions,
+      timeSeriesForecast: aiResult.timeSeriesForecast,
       lastComputed: aiResult.lastComputed
     };
     this.routesEvaluation = aiResult.routesEvaluation;
   }
 
-  // Create Checkpost Dispatch & Generate Port Code (Replaces old dummy vehicles so ONLY fresh user truck exists)
+  // Create Checkpost Dispatch & Generate Port Code
   createDispatch(dispatchData) {
     const portNumber = Math.floor(1000 + Math.random() * 9000);
     const portCode = `PORT-${portNumber}`;
@@ -150,52 +163,98 @@ class SystemState {
       type: 'success'
     });
 
-    this.sendPttMessage({
-      sender: 'Checkpost Dispatch Controller',
-      role: 'CONTROL_ROOM',
-      text: `Vehicle ${newDispatch.vehicleNumber} (${newDispatch.driverName}) cleared at checkpost. Driver Access Code: ${portCode}. Route A assigned.`
-    });
-
-    return { dispatch: newDispatch, state: this.getState() };
-  }
-
-  deleteVehicle(vehicleId) {
-    this.vehicles = this.vehicles.filter(v => v.id !== vehicleId && v.vehicleId !== vehicleId);
-    this.dispatches = this.dispatches.filter(d => d.vehicleId !== vehicleId && d.portCode !== vehicleId && d.id !== vehicleId);
-    return this.getState();
-  }
-
-  getDispatchByPort(portCode) {
-    const cleanCode = portCode?.trim().toUpperCase();
-    return this.dispatches.find(d => d.portCode === cleanCode || d.portCode.endsWith(cleanCode) || d.vehicleNumber.includes(cleanCode)) || this.dispatches[0];
+    return {
+      portCode,
+      vehicleId,
+      state: this.getState()
+    };
   }
 
   setEnvironmentParam(key, value) {
-    this.environment[key] = value;
-    this.activeScenarioPreset = 'CUSTOM';
-    this.environmentLastUpdated = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST';
-    this.recomputeIntelligence();
+    if (this.environment[key] !== undefined) {
+      this.environment[key] = value;
+      this.environmentLastUpdated = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST';
+      this.recomputeIntelligence();
+
+      this.addTimelineEvent({
+        time: this.environmentLastUpdated,
+        title: `ENV SENSOR TELEMETRY UPDATED`,
+        desc: `Parameter '${key}' updated to ${value}. Risk recalculation executed: ${this.aiIntelligence.accessibilityRiskPct}%.`,
+        type: 'weather'
+      });
+    }
     return this.getState();
   }
 
   applyScenarioPreset(presetKey) {
     if (SCENARIO_PRESETS[presetKey]) {
-      this.environment = { ...SCENARIO_PRESETS[presetKey] };
       this.activeScenarioPreset = presetKey;
+      this.environment = { ...SCENARIO_PRESETS[presetKey] };
       this.environmentLastUpdated = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST';
       this.recomputeIntelligence();
+
+      this.addTimelineEvent({
+        time: this.environmentLastUpdated,
+        title: `SCENARIO SIMULATION: ${SCENARIO_PRESETS[presetKey].name}`,
+        desc: `Environmental and geotechnical parameters synchronized. AI computed risk: ${this.aiIntelligence.accessibilityRiskPct}%.`,
+        type: presetKey === 'NORMAL' ? 'success' : presetKey === 'LANDSLIDE' ? 'danger' : 'weather'
+      });
     }
     return this.getState();
   }
 
-  setTargetedPin(lat, lng, label = 'Pinned Coordinate', sector = 'Tactical Sector') {
-    this.targetedPin = { lat, lng, label, sector };
+  setTargetedPin(lat, lng, label, sector) {
+    this.targetedPin = {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      label: label || 'Targeted GPS Point',
+      sector: sector || 'NER Monitored Sector'
+    };
+
+    this.addTimelineEvent({
+      time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+      title: `TACTICAL PIN TARGETED: ${this.targetedPin.label}`,
+      desc: `Coordinates set to [${this.targetedPin.lat.toFixed(4)}, ${this.targetedPin.lng.toFixed(4)}]. Sector: ${this.targetedPin.sector}`,
+      type: 'info'
+    });
+
     return this.getState();
   }
 
+  // Report Edge AI Dashcam Hazard Detection from Driver HUD
+  reportCvHazard(hazardData) {
+    const lat = parseFloat(hazardData.lat) || (this.targetedPin ? this.targetedPin.lat : 25.1120);
+    const lng = parseFloat(hazardData.lng) || (this.targetedPin ? this.targetedPin.lng : 92.3850);
+
+    const cvDetection = {
+      id: `CV-${Date.now().toString().slice(-4)}`,
+      label: hazardData.label || 'Rockfall Debris / Pavement Cutoff',
+      confidence: hazardData.confidence || 94.6,
+      distanceAheadMeters: hazardData.distanceAheadMeters || 45,
+      lat,
+      lng,
+      timestamp: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+      vehicleId: hazardData.vehicleId || 'TRUCK-07',
+      driverName: hazardData.driverName || 'Driver Cockpit'
+    };
+
+    this.cvDetections.unshift(cvDetection);
+    if (this.cvDetections.length > 20) this.cvDetections.pop();
+
+    // Auto-launch hazard mission and trigger auto-reroute
+    return this.launchHazard({
+      type: hazardData.hazardType || 'Rockfall / Debris',
+      name: `AI Dashcam Detected: ${cvDetection.label}`,
+      severity: 'CRITICAL',
+      lat,
+      lng
+    });
+  }
+
   launchHazard(hazardData) {
-    const lat = parseFloat(hazardData.lat || this.targetedPin.lat);
-    const lng = parseFloat(hazardData.lng || this.targetedPin.lng);
+    const lat = parseFloat(hazardData.lat) || (this.targetedPin ? this.targetedPin.lat : 25.1120);
+    const lng = parseFloat(hazardData.lng) || (this.targetedPin ? this.targetedPin.lng : 92.3850);
+
     const newMission = {
       id: `HAZARD-${Date.now().toString().slice(-4)}`,
       type: 'HAZARD_INJECTION',
@@ -215,6 +274,7 @@ class SystemState {
     // Escalate risk on Route A and set AI recommendation to Route B
     this.environment.rainfall = Math.max(this.environment.rainfall, 54);
     this.environment.landslideProb = 96;
+    this.environment.soilMoistureIndex = 95;
     this.environment.roadSurfaceCondition = 'IMPASSABLE';
     this.environment.bridgeAccessibility = 'CLOSED';
     this.recomputeIntelligence();
@@ -298,27 +358,26 @@ class SystemState {
         { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
         { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
         { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
-        { coords: [25.5150, 92.3120], name: 'Nartiang Monolith Pass' },
-        { coords: [25.5850, 92.4850], name: 'Khanduli Border Post' },
-        { coords: [25.5420, 92.6850], name: 'Sahsniang Ridge Link' },
-        { coords: [25.4850, 92.8420], name: 'Kopili Dam Reservoir Causeway' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley (Basalt Formation)' },
+        { coords: [25.4500, 92.2000], name: 'Jowai Tactical Bypass Junction' },
+        { coords: [25.4820, 92.3500], name: 'Shangpung Mountain Ridge' },
+        { coords: [25.5200, 92.5200], name: 'Garampani Thermal Basin' },
+        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley' },
         { coords: [25.3250, 92.9120], name: 'Gunjung Mountain Pass' },
-        { coords: [25.2420, 92.8540], name: 'Jatinga Valley Safe Bypass' },
+        { coords: [25.2420, 92.8540], name: 'Jatinga Cloud Valley' },
         { coords: [25.1820, 92.8120], name: 'Harangajao Valley Bridge' },
-        { coords: [25.0850, 92.7950], name: 'Ditokcherra Tunnel Node' },
+        { coords: [25.0850, 92.7950], name: 'Ditokcherra Reinforced Tunnel' },
+        { coords: [25.0120, 92.7820], name: 'Bandarkhal Causeway' },
         { coords: [24.9450, 92.7750], name: 'Damcherra Approach' },
         { coords: [24.8850, 92.7680], name: 'Silchar North Gate' },
         { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
       ];
     }
 
-    // Default: Dense Route A Waypoints
+    // Default: Route A (NH-6 Primary)
     return [
-      { coords: [26.1445, 91.7362], name: 'Guwahati Central Depot' },
+      { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
       { coords: [26.0820, 91.8020], name: 'Khanapara Gate' },
-      { coords: [26.0120, 91.8450], name: 'Jorabat Mountain Incline' },
+      { coords: [26.0120, 91.8450], name: 'Jorabat Incline' },
       { coords: [25.9610, 91.8845], name: 'Nongpoh Valley Sector' },
       { coords: [25.8850, 91.8720], name: 'Umling Highway Rest Stop' },
       { coords: [25.7920, 91.8890], name: 'Umsning Expressway Node' },
@@ -327,18 +386,16 @@ class SystemState {
       { coords: [25.5788, 91.8933], name: 'Shillong Central Hub' },
       { coords: [25.5420, 91.9650], name: 'Laitkor Peak' },
       { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
-      { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
-      { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
-      { coords: [25.4520, 92.2030], name: 'Jowai Chokepoint (SH-6 Junction)' },
-      { coords: [25.3620, 92.2780], name: 'Ladrymbai Coal Belt' },
-      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
-      { coords: [25.1480, 92.3720], name: 'Lumshnong Limestone Pass' },
-      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel (High Landslide Hotspot)' },
-      { coords: [25.0450, 92.4420], name: 'Malidhar Border Post' },
-      { coords: [24.9950, 92.4980], name: 'Gumra Valley' },
-      { coords: [24.9750, 92.5420], name: 'Kalain Causeway' },
-      { coords: [24.9250, 92.6250], name: 'Bhaga Interchange' },
-      { coords: [24.8720, 92.7120], name: 'Silchar North Outskirts' },
+      { coords: [25.485, 92.125], name: 'Wahiajer Valley' },
+      { coords: [25.465, 92.168], name: 'Ummulong Bypass' },
+      { coords: [25.4500, 92.2000], name: 'Jowai Central Gate' },
+      { coords: [25.4120, 92.2450], name: 'Lad Rymbai Coal Basin' },
+      { coords: [25.3250, 92.3120], name: 'Khliehriat District Hub' },
+      { coords: [25.2420, 92.3540], name: 'Lumshnong Cement Corridor' },
+      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel & High Vulnerability Slide Zone' },
+      { coords: [24.9850, 92.4250], name: 'Malidor Meghalaya-Assam Border' },
+      { coords: [24.8950, 92.5120], name: 'Kalain Tea Estate Road' },
+      { coords: [24.8520, 92.6540], name: 'Badarpur Junction Crossing' },
       { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
     ];
   }
@@ -348,23 +405,38 @@ class SystemState {
     if (!vehicle) return this.getState();
 
     const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
-
     let curIdx = vehicle.currentWaypointIdx ?? 0;
     let nextIdx = curIdx + 1;
-    if (nextIdx >= waypoints.length) nextIdx = waypoints.length - 1;
+
+    if (nextIdx >= waypoints.length) {
+      vehicle.status = 'DELIVERED';
+      vehicle.progressPct = 100;
+      vehicle.speed = 0;
+      vehicle.eta = 'ARRIVED';
+      vehicle.coordinates = waypoints[waypoints.length - 1].coords;
+      vehicle.currentLocationName = waypoints[waypoints.length - 1].name;
+
+      this.addTimelineEvent({
+        time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
+        title: `DELIVERY COMPLETED: ${vehicle.vehicleNumber || vehicle.id}`,
+        desc: `Mission Successful! Critical Cold-Chain Medical Supplies arrived securely at ${vehicle.destination}. Zero vaccine spoilage recorded.`,
+        type: 'success'
+      });
+      return this.getState();
+    }
 
     vehicle.currentWaypointIdx = nextIdx;
     vehicle.coordinates = waypoints[nextIdx].coords;
     vehicle.currentLocationName = waypoints[nextIdx].name;
     vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
-    vehicle.speed = Math.floor(48 + Math.random() * 8);
-    const remMinutes = Math.max(15, Math.round((waypoints.length - 1 - nextIdx) * 18));
+    vehicle.speed = Math.floor(40 + Math.random() * 18);
+    const remMinutes = Math.max(5, Math.round((waypoints.length - 1 - nextIdx) * 16));
     vehicle.eta = `${Math.floor(remMinutes / 60)}h ${remMinutes % 60}m`;
 
     this.addTimelineEvent({
       time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) + ' IST',
-      title: `GPS TELEMETRY UPDATE: ${vehicle.vehicleId || vehicle.id}`,
-      desc: `Advanced to ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}]. Speed: ${vehicle.speed} km/h.`,
+      title: `GPS TELEMETRY: ${vehicle.vehicleId || vehicle.id}`,
+      desc: `Vehicle advanced to node ${vehicle.currentLocationName} [${vehicle.coordinates[0].toFixed(4)}, ${vehicle.coordinates[1].toFixed(4)}]. Speed: ${vehicle.speed} km/h, Progress: ${vehicle.progressPct}%.`,
       type: 'info'
     });
 
@@ -376,7 +448,6 @@ class SystemState {
     if (!vehicle) return this.getState();
 
     const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
-
     let curIdx = vehicle.currentWaypointIdx ?? 0;
     let prevIdx = Math.max(0, curIdx - 1);
 
@@ -405,7 +476,6 @@ class SystemState {
       vehicle.status = 'REROUTED';
       vehicle.autoRerouted = true;
       const waypoints = this.getDenseWaypoints('ROUTE_B_DIVERSION');
-      // Set to Jowai/Umrangso junction
       vehicle.currentWaypointIdx = Math.min(vehicle.currentWaypointIdx || 13, waypoints.length - 1);
       vehicle.coordinates = waypoints[vehicle.currentWaypointIdx].coords;
       vehicle.currentLocationName = waypoints[vehicle.currentWaypointIdx].name;
@@ -453,7 +523,8 @@ class SystemState {
       pttFeed: this.pttFeed,
       targetedPin: this.targetedPin,
       customMissions: this.customMissions,
-      timeline: this.timeline
+      timeline: this.timeline,
+      cvDetections: this.cvDetections
     };
   }
 }

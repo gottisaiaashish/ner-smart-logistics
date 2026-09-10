@@ -6,6 +6,7 @@
 import { INITIAL_VEHICLES } from '../data/vehicles-data.js';
 import { INITIAL_ALERTS, INITIAL_TIMELINE, INITIAL_FIELD_REPORTS, INITIAL_DELIVERIES } from '../data/mock-state.js';
 import { CORRIDORS, DISASTER_ZONES, RIVER_GAUGES } from '../data/geo-data.js';
+import { REAL_ROAD_POLYLINES } from '../data/real-road-polylines.js';
 import { socketClient } from './socket-client.js';
 import { sounds } from '../audio/sound-effects.js';
 
@@ -273,7 +274,19 @@ class Store {
       }
     }
     if (serverState.vehicles && Array.isArray(serverState.vehicles)) {
-      this.state.vehicles = serverState.vehicles;
+      this.state.vehicles = serverState.vehicles.map(v => {
+        const waypoints = this.getDenseWaypoints(v.assignedRoute || 'ROUTE_A');
+        const wpIdx = v.currentWaypointIdx !== undefined ? v.currentWaypointIdx : (v.progressPct ? Math.round((v.progressPct / 100) * (waypoints.length - 1)) : 0);
+        const safeIdx = Math.min(waypoints.length - 1, Math.max(0, wpIdx));
+        return {
+          ...v,
+          currentWaypointIdx: safeIdx,
+          coordinates: [...waypoints[safeIdx].coords],
+          currentLocationName: v.currentLocationName || waypoints[safeIdx].name,
+          originGps: [...waypoints[0].coords],
+          destGps: [...waypoints[waypoints.length - 1].coords]
+        };
+      });
       if (this.state.vehicles.length > 0) {
         const active = this.state.vehicles.find(v => v.id === this.state.driverContext.activeVehicleId || v.vehicleId === this.state.driverContext.activeVehicleId || v.portCode === this.state.driverContext.activeVehicleId);
         if (!active) {
@@ -302,18 +315,26 @@ class Store {
           if (!parsed.customMissions) {
             parsed.customMissions = [];
           }
-          // Sanitize & fix vehicle IDs and remove broken 'undefined' entries
+          // Sanitize & fix vehicle IDs and guarantee 100% road polyline alignment
           if (parsed.vehicles) {
             parsed.vehicles = parsed.vehicles
               .filter(v => v && v.id !== 'undefined' && v.vehicleId !== 'undefined')
               .map((v, idx) => {
                 const vid = v.id || v.vehicleId || `TRUCK-${String(idx + 1).padStart(2, '0')}`;
+                const poly = REAL_ROAD_POLYLINES[v.assignedRoute || 'ROUTE_A'] || REAL_ROAD_POLYLINES.ROUTE_A;
+                const wpIdx = v.currentWaypointIdx !== undefined ? v.currentWaypointIdx : 0;
+                const safeIdx = Math.min(59, Math.max(0, wpIdx));
+                const polyIdx = Math.min(poly.length - 1, Math.round((safeIdx / 59) * (poly.length - 1)));
                 return {
                   ...v,
                   id: vid,
                   vehicleId: vid,
                   name: vid,
-                  priority: v.priority || v.cargoPriority || 'CRITICAL'
+                  priority: v.priority || v.cargoPriority || 'CRITICAL',
+                  currentWaypointIdx: safeIdx,
+                  coordinates: [poly[polyIdx][0], poly[polyIdx][1]],
+                  originGps: [poly[0][0], poly[0][1]],
+                  destGps: [poly[poly.length - 1][0], poly[poly.length - 1][1]]
                 };
               });
           }
@@ -867,33 +888,6 @@ class Store {
     this.notify();
   }
 
-  // Advance Vehicle along Route Waypoints
-  advanceVehicle(vehicleId) {
-    const v = this.state.vehicles.find(veh => veh.id === vehicleId || veh.vehicleId === vehicleId) || this.state.vehicles[0];
-    if (!v) return;
-
-    const isRouteB = v.assignedRoute === 'ROUTE_B' || v.status === 'REROUTED';
-    const routeWaypoints = isRouteB ? CORRIDORS.ROUTE_B.waypoints : CORRIDORS.ROUTE_A.waypoints;
-    const landmarkNames = isRouteB
-      ? ['Guwahati Checkpost', 'Jagiroad Bypass', 'Nagaon Crossing', 'Dabaka Junction', 'Lumding Ridge', 'Umrangso Safe Valley', 'Harangajao Cut', 'Silchar District Hospital (Arrived)']
-      : ['Guwahati Checkpost', 'Nongpoh Ascent', 'Shillong Central Hub', 'Jowai Pass', 'Khliehriat Chokepoint', 'Sonapur Landslide Sector', 'Kalain Approach', 'Silchar District Hospital (Arrived)'];
-
-    if (v.currentWaypointIdx === undefined) {
-      // Find closest waypoint
-      v.currentWaypointIdx = 0;
-    }
-    v.currentWaypointIdx = (v.currentWaypointIdx + 1) % routeWaypoints.length;
-
-    v.coordinates = [...routeWaypoints[v.currentWaypointIdx]];
-    v.currentLocationName = landmarkNames[v.currentWaypointIdx] || `Corridor Milestone ${v.currentWaypointIdx * 45} km`;
-    v.progressPct = Math.round(((v.currentWaypointIdx + 1) / routeWaypoints.length) * 100);
-    
-    const remainingHours = Math.max(0.5, (routeWaypoints.length - v.currentWaypointIdx - 1) * 0.8).toFixed(1);
-    v.eta = v.currentWaypointIdx === routeWaypoints.length - 1 ? 'ARRIVED DESTINATION' : `${remainingHours}h remaining`;
-    v.speed = v.status === 'DELAYED' ? 18 : 54;
-
-    this.notify();
-  }
 
   // State Mutators
   setSelectedVehicle(vehicleId) {
@@ -1140,6 +1134,26 @@ class Store {
     return newMission;
   }
 
+  // Report Edge AI Dashcam Hazard Detection from In-Cab Driver HUD
+  reportCvHazard(hazardData) {
+    const lat = hazardData.lat || (this.state.targetedPin ? this.state.targetedPin.lat : 25.1120);
+    const lng = hazardData.lng || (this.state.targetedPin ? this.state.targetedPin.lng : 92.3850);
+    
+    // Broadcast over WebSocket to Control Room & All Nodes
+    socketClient.send('REPORT_CV_HAZARD', {
+      ...hazardData,
+      lat,
+      lng
+    });
+
+    return this.launchHazardAtPin({
+      type: hazardData.hazardType || 'Rockfall Debris',
+      severity: 'CRITICAL',
+      lat,
+      lng
+    });
+  }
+
   // 2. Launch Convoy from Pinned GPS Location
   launchConvoyAtPin({ originGps, originName, destGps, destName, cargo, priority, commodityType }) {
     const newId = `TRUCK-${Math.floor(20 + Math.random() * 80)}`;
@@ -1156,7 +1170,9 @@ class Store {
       priority: priority || 'CRITICAL',
       origin: originName || 'Pinned Tactical Launch Base',
       destination: destName || 'District Civil Hospital, Silchar',
-      coordinates: originGps || [26.1820, 91.7580],
+      originGps: originGps || [26.1445, 91.7362],
+      destGps: destGps || [24.8333, 92.7789],
+      coordinates: originGps || [26.1445, 91.7362],
       assignedRoute: 'ROUTE_B',
       activeCorridorId: 'corridor-route-b',
       status: 'IN_TRANSIT',
@@ -1169,13 +1185,16 @@ class Store {
       riskLevel: 'LOW',
       currentLocationName: originName || 'Pinned Launch Point',
       lastGpsUpdate: 'Live Lock',
-      progressPct: 15,
+      progressPct: 0,
+      currentWaypointIdx: 0,
       routeHistory: [
         { time: timeStr, event: `Mission launched from pinned GPS location [${originGps[0]}, ${originGps[1]}].` }
       ]
     };
 
     this.state.vehicles.unshift(newVehicle);
+    this.state.driverContext.activeVehicleId = newId;
+    this.state.selectedVehicleId = newId;
 
     this.state.customMissions.unshift({
       id: `CONVOY-${newId}`,
@@ -1268,105 +1287,129 @@ class Store {
     return newMission;
   }
 
-  getDenseWaypoints(routeType) {
-    if (routeType === 'ROUTE_B') {
-      return [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Central Depot' },
-        { coords: [26.1150, 91.8420], name: 'Khanapara East Gate' },
-        { coords: [26.1620, 91.9540], name: 'Sonapur Assam Highway' },
-        { coords: [26.1820, 92.0540], name: 'Jagiroad Paper Mill Crossing' },
-        { coords: [26.2450, 92.2150], name: 'Dharamtul Highway Sector' },
-        { coords: [26.2950, 92.3920], name: 'Raha Toll Plaza' },
-        { coords: [26.3450, 92.6840], name: 'Nagaon Central Bypass' },
-        { coords: [26.2420, 92.8650], name: 'Kathiatoli Junction' },
-        { coords: [26.1280, 93.0320], name: 'Dabaka Checkpost' },
-        { coords: [26.0120, 93.0950], name: 'Hojai Agriculture Belt' },
-        { coords: [25.8920, 93.1350], name: 'Lanka Rail Crossing' },
-        { coords: [25.7510, 93.1750], name: 'Lumding Junction Ridge' },
-        { coords: [25.6350, 93.1420], name: 'Langting Hill Pass' },
-        { coords: [25.5420, 93.0850], name: 'Hatikhali Causeway' },
-        { coords: [25.4850, 93.0250], name: 'Mahur Reinforced Bridge' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley' },
-        { coords: [25.3250, 92.9120], name: 'Gunjung Mountain Pass' },
-        { coords: [25.2420, 92.8540], name: 'Jatinga Cloud Valley' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Valley Bridge' },
-        { coords: [25.0850, 92.7950], name: 'Ditokcherra Reinforced Tunnel' },
-        { coords: [25.0120, 92.7820], name: 'Bandarkhal Causeway' },
-        { coords: [24.9450, 92.7750], name: 'Damcherra Approach' },
-        { coords: [24.8850, 92.7680], name: 'Silchar North Gate' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
-      ];
+  // 5. 1-Tap Emergency SOS Hazard Report from Driver Cockpit
+  submitEmergencySosReport({ vehicleId = 'TRUCK-07', gps, hazardType = 'LANDSLIDE_OBSTRUCTION', details } = {}) {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
+    const locationCoords = gps || (vehicle ? vehicle.coordinates : [25.1120, 92.3850]);
+    const locationName = (vehicle && vehicle.currentLocationName) || 'NH-6 Highway Sector';
+
+    const newReport = {
+      id: `SOS-${Date.now().toString().slice(-4)}`,
+      timestamp: timeStr,
+      officerName: `Driver ${vehicle ? vehicle.driverName || vehicle.id : 'TRUCK-07'}`,
+      roadName: `${vehicle ? vehicle.assignedRoute || 'NH-6' : 'NH-6'} · ${locationName}`,
+      incidentType: hazardType === 'LANDSLIDE_OBSTRUCTION' ? 'Severe Landslide & Mud Ingress' : 'Convoy Breakdown Obstacle',
+      severity: 'Critical / Impassable',
+      status: 'VERIFIED_URGENT',
+      gps: locationCoords,
+      description: details || `DRIVER SOS ALERT: Severe debris flow and slope failure blocking passage near ${locationName}. Emergency assistance requested.`
+    };
+
+    if (!this.state.fieldReports) this.state.fieldReports = [];
+    this.state.fieldReports.unshift(newReport);
+
+    this.addTimelineEvent({
+      time: timeStr,
+      title: `🚨 EMERGENCY SOS DISPATCHED: ${vehicle ? vehicle.id : 'TRUCK-07'}`,
+      desc: `Hazard flagged at ${locationName} [${locationCoords[0].toFixed(4)}, ${locationCoords[1].toFixed(4)}]. Guwahati HQ & Rescue Unit alerted.`,
+      type: 'danger'
+    });
+
+    socketClient.send('SUBMIT_INCIDENT', newReport);
+    this.notify();
+    return newReport;
+  }
+
+  getDenseWaypoints(routeType = 'ROUTE_A') {
+    let key = 'ROUTE_A';
+    if (routeType === 'ROUTE_B') key = 'ROUTE_B';
+    else if (routeType === 'ROUTE_B_DIVERSION' || routeType === 'REROUTED') key = 'ROUTE_B_DIVERSION';
+
+    let polyline = REAL_ROAD_POLYLINES[key] || REAL_ROAD_POLYLINES.ROUTE_A;
+    if (!polyline || polyline.length === 0) {
+      polyline = (CORRIDORS[key] && CORRIDORS[key].waypoints) || CORRIDORS.ROUTE_A.waypoints;
     }
 
-    if (routeType === 'ROUTE_B_DIVERSION' || routeType === 'REROUTED') {
-      return [
-        { coords: [26.1445, 91.7362], name: 'Guwahati Depot' },
-        { coords: [26.0820, 91.8020], name: 'Khanapara Gate' },
-        { coords: [26.0120, 91.8450], name: 'Jorabat Mountain Incline' },
-        { coords: [25.9610, 91.8845], name: 'Nongpoh Valley Sector' },
-        { coords: [25.8850, 91.8720], name: 'Umling Highway Rest Stop' },
-        { coords: [25.7920, 91.8890], name: 'Umsning Expressway Node' },
-        { coords: [25.6840, 91.9020], name: 'Umiam Lake Bridge' },
-        { coords: [25.6120, 91.8950], name: 'Mawlai North Gate' },
-        { coords: [25.5788, 91.8933], name: 'Shillong Central Hub' },
-        { coords: [25.5420, 91.9650], name: 'Laitkor Peak' },
-        { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
-        { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
-        { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
-        { coords: [25.4520, 92.2030], name: 'Jowai Diversion Junction (SH-6)' },
-        { coords: [25.5150, 92.3120], name: 'Nartiang Monolith Pass' },
-        { coords: [25.5850, 92.4850], name: 'Khanduli Border Post' },
-        { coords: [25.5420, 92.6850], name: 'Sahsniang Ridge Link' },
-        { coords: [25.4850, 92.8420], name: 'Kopili Dam Reservoir Causeway' },
-        { coords: [25.4120, 92.9820], name: 'Umrangso Safe Rock Valley (Basalt Formation)' },
-        { coords: [25.3250, 92.9120], name: 'Gunjung Mountain Pass' },
-        { coords: [25.2420, 92.8540], name: 'Jatinga Valley Safe Bypass' },
-        { coords: [25.1820, 92.8120], name: 'Harangajao Valley Bridge' },
-        { coords: [25.0850, 92.7950], name: 'Ditokcherra Tunnel Node' },
-        { coords: [24.9450, 92.7750], name: 'Damcherra Approach' },
-        { coords: [24.8850, 92.7680], name: 'Silchar North Gate' },
-        { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
-      ];
-    }
+    const totalKm = (key === 'ROUTE_B' || key === 'ROUTE_B_DIVERSION') ? 348 : 315;
+    // Exactly 500 meters (0.5 km) per micro-step (630 steps for 315 km Route A, 696 steps for Route B)
+    const totalSteps = Math.round(totalKm / 0.5);
+    const waypoints = [];
+    const step = (polyline.length - 1) / (totalSteps - 1);
 
-    // Default: Dense Route A Waypoints
-    return [
-      { coords: [26.1445, 91.7362], name: 'Guwahati Central Depot' },
-      { coords: [26.0820, 91.8020], name: 'Khanapara Gate' },
-      { coords: [26.0120, 91.8450], name: 'Jorabat Mountain Incline' },
-      { coords: [25.9610, 91.8845], name: 'Nongpoh Valley Sector' },
-      { coords: [25.8850, 91.8720], name: 'Umling Highway Rest Stop' },
-      { coords: [25.7920, 91.8890], name: 'Umsning Expressway Node' },
-      { coords: [25.6840, 91.9020], name: 'Umiam Lake Bridge' },
-      { coords: [25.6120, 91.8950], name: 'Mawlai North Gate' },
-      { coords: [25.5788, 91.8933], name: 'Shillong Central Hub' },
-      { coords: [25.5420, 91.9650], name: 'Laitkor Peak' },
-      { coords: [25.5120, 92.0520], name: 'Mawryngkneng' },
-      { coords: [25.4850, 92.1250], name: 'Wahiajer Valley' },
-      { coords: [25.4650, 92.1680], name: 'Ummulong Bypass' },
-      { coords: [25.4520, 92.2030], name: 'Jowai Chokepoint (SH-6 Junction)' },
-      { coords: [25.3620, 92.2780], name: 'Ladrymbai Coal Belt' },
-      { coords: [25.1840, 92.3560], name: 'Khliehriat Cut' },
-      { coords: [25.1480, 92.3720], name: 'Lumshnong Limestone Pass' },
-      { coords: [25.1120, 92.3850], name: 'Sonapur Tunnel (High Landslide Hotspot)' },
-      { coords: [25.0450, 92.4420], name: 'Malidhar Border Post' },
-      { coords: [24.9950, 92.4980], name: 'Gumra Valley' },
-      { coords: [24.9750, 92.5420], name: 'Kalain Causeway' },
-      { coords: [24.9250, 92.6250], name: 'Bhaga Interchange' },
-      { coords: [24.8720, 92.7120], name: 'Silchar North Outskirts' },
-      { coords: [24.8333, 92.7789], name: 'Silchar District Civil Hospital (Destination)' }
+    const majorLandmarksA = [
+      { pct: 0.00, name: 'Khanapara Staging Hub, Guwahati' },
+      { pct: 0.05, name: 'Beltola-Khanapara Bypass Link' },
+      { pct: 0.10, name: 'Jorabat Mountain Incline (NH-6)' },
+      { pct: 0.18, name: 'Byrnihat Meghalaya Border Checkpoint' },
+      { pct: 0.28, name: 'Nongpoh Valley Sector' },
+      { pct: 0.36, name: 'Umling Highway Rest Stop' },
+      { pct: 0.44, name: 'Umsning Expressway Link' },
+      { pct: 0.52, name: 'Umiam Lake Bridge (Elevation 1,020m)' },
+      { pct: 0.58, name: 'Mawlai North Gate' },
+      { pct: 0.64, name: 'Shillong Bypass Interchange' },
+      { pct: 0.70, name: 'Mawryngkneng Ridge Pass' },
+      { pct: 0.76, name: 'Jowai Diversion Junction (SH-6)' },
+      { pct: 0.82, name: 'Ladrymbai Coal Belt Sector' },
+      { pct: 0.88, name: 'Khliehriat Medical Checkpost' },
+      { pct: 0.92, name: 'Sonapur Landslide Risk Tunnel' },
+      { pct: 0.95, name: 'Malidhar Border Crossing' },
+      { pct: 0.98, name: 'Kalain River Causeway' },
+      { pct: 1.00, name: 'Silchar District Civil Hospital' }
     ];
+
+    const majorLandmarksB = [
+      { pct: 0.00, name: 'Khanapara Staging Hub, Guwahati' },
+      { pct: 0.08, name: 'Sonapur Assam Expressway Incline' },
+      { pct: 0.16, name: 'Jagiroad Paper Mill Crossing' },
+      { pct: 0.25, name: 'Dharamtul Highway Sector' },
+      { pct: 0.35, name: 'Raha Toll Plaza' },
+      { pct: 0.45, name: 'Nagaon Central Bypass' },
+      { pct: 0.55, name: 'Kathiatoli Junction' },
+      { pct: 0.65, name: 'Dabaka Checkpost' },
+      { pct: 0.75, name: 'Lumding Mountain Ridge' },
+      { pct: 0.85, name: 'Umrangso Bedrock Ridge (Safe Bypass)' },
+      { pct: 0.92, name: 'Jatinga Cloud Valley Bridge' },
+      { pct: 0.97, name: 'Harangajao Valley Link' },
+      { pct: 1.00, name: 'Silchar District Civil Hospital' }
+    ];
+
+    const landmarkMap = (key === 'ROUTE_B' || key === 'ROUTE_B_DIVERSION') ? majorLandmarksB : majorLandmarksA;
+
+    for (let i = 0; i < totalSteps; i++) {
+      const idx = Math.min(polyline.length - 1, Math.round(i * step));
+      const currentPct = i / (totalSteps - 1);
+      const currentKm = (currentPct * totalKm).toFixed(1);
+
+      // Find closest preceding landmark
+      let name = `NH-6 Sector Km ${currentKm}`;
+      const closest = [...landmarkMap].sort((a, b) => Math.abs(a.pct - currentPct) - Math.abs(b.pct - currentPct))[0];
+      if (closest && Math.abs(closest.pct - currentPct) <= 0.02) {
+        name = closest.name;
+      } else {
+        const prevLandmark = [...landmarkMap].reverse().find(m => m.pct <= currentPct) || landmarkMap[0];
+        const distFromPrev = ((currentPct - prevLandmark.pct) * totalKm).toFixed(1);
+        name = `${prevLandmark.name} (+${distFromPrev} km)`;
+      }
+
+      waypoints.push({
+        coords: [polyline[idx][0], polyline[idx][1]],
+        name
+      });
+    }
+
+    return waypoints;
   }
 
   // Advance Vehicle Along Assigned Route Waypoints (Drive Forward)
-  advanceVehicle(vehicleId = 'TRUCK-07') {
+  advanceVehicle(vehicleId = 'TRUCK-07', stepCount = 5) {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (!vehicle) return;
 
     const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
 
     let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
-    let nextIdx = curIdx + 1;
+    let nextIdx = curIdx + stepCount;
     if (nextIdx >= waypoints.length) nextIdx = waypoints.length - 1;
 
     vehicle.currentWaypointIdx = nextIdx;
@@ -1374,7 +1417,7 @@ class Store {
     vehicle.currentLocationName = waypoints[nextIdx].name;
     vehicle.progressPct = Math.round((nextIdx / (waypoints.length - 1)) * 100);
     vehicle.speed = Math.floor(48 + Math.random() * 8);
-    const remMinutes = Math.max(15, Math.round((waypoints.length - 1 - nextIdx) * 18));
+    const remMinutes = Math.max(10, Math.round(((waypoints.length - 1 - nextIdx) / (waypoints.length - 1)) * 420));
     vehicle.eta = `${Math.floor(remMinutes / 60)}h ${remMinutes % 60}m`;
 
     this.addTimelineEvent({
@@ -1385,28 +1428,28 @@ class Store {
     });
 
     // Broadcast over WebSocket to sync all portals/screens
-    socketClient.send('ADVANCE_VEHICLE', { vehicleId: vehicle.id || vehicleId });
+    socketClient.send('ADVANCE_VEHICLE', { vehicleId: vehicle.id || vehicleId, currentWaypointIdx: nextIdx });
 
     this.notify();
     return vehicle;
   }
 
   // Reverse / Step Back Vehicle to Previous Safe Waypoint
-  reverseVehicle(vehicleId = 'TRUCK-07') {
+  reverseVehicle(vehicleId = 'TRUCK-07', stepCount = 5) {
     const vehicle = this.state.vehicles.find(v => v.id === vehicleId || v.vehicleId === vehicleId || v.portCode === vehicleId) || this.state.vehicles[0];
     if (!vehicle) return;
 
     const waypoints = this.getDenseWaypoints(vehicle.assignedRoute);
 
     let curIdx = vehicle.currentWaypointIdx !== undefined ? vehicle.currentWaypointIdx : 0;
-    let prevIdx = Math.max(0, curIdx - 1);
+    let prevIdx = Math.max(0, curIdx - stepCount);
 
     vehicle.currentWaypointIdx = prevIdx;
     vehicle.coordinates = [...waypoints[prevIdx].coords];
     vehicle.currentLocationName = waypoints[prevIdx].name;
     vehicle.progressPct = Math.round((prevIdx / (waypoints.length - 1)) * 100);
     vehicle.speed = 32;
-    const remMinutes = Math.max(15, Math.round((waypoints.length - 1 - prevIdx) * 18));
+    const remMinutes = Math.max(10, Math.round(((waypoints.length - 1 - prevIdx) / (waypoints.length - 1)) * 420));
     vehicle.eta = `${Math.floor(remMinutes / 60)}h ${remMinutes % 60}m`;
 
     this.addTimelineEvent({

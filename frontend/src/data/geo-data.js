@@ -17,8 +17,10 @@ export const NER_REGIONS = [
   { id: 'SK', name: 'Sikkim', center: [27.5330, 88.5122] }
 ];
 
+import { REAL_ROAD_POLYLINES } from './real-road-polylines.js';
+
 export const CORRIDORS = {
-  // ROUTE A — Primary Arterial Highway (Dense 24 Waypoints for Smooth Progressive Movement)
+  // ROUTE A — Primary Arterial Highway (Real High-Density 3500 Road Coordinates)
   ROUTE_A: {
     id: 'corridor-route-a',
     code: 'ROUTE_A',
@@ -31,11 +33,12 @@ export const CORRIDORS = {
     baseRiskScore: 18,
     criticalChokePoint: 'Sonapur Tunnel & Khliehriat Cut (Km 142)',
     vulnerabilityProfile: 'High slope shear vulnerability; severe torrential inundation prone',
-    waypoints: [
-      [26.1445, 91.7362], // 0: Guwahati Central Staging Depot
-      [26.0820, 91.8020], // 1: Khanapara Checkpost Gate
-      [26.0120, 91.8450], // 2: Jorabat Mountain Incline
-      [25.9610, 91.8845], // 3: Nongpoh Valley Waypoint
+    waypoints: REAL_ROAD_POLYLINES.ROUTE_A,
+    checkpoints: [
+      [26.11586, 91.8016], // 0: Khanapara Staging Depot
+      [26.1005, 91.8739], // 1: Jorabat Mountain Incline
+      [26.0403, 91.8677], // 2: Byrnihat Crossing
+      [25.9602, 91.8557], // 3: Nongpoh Valley Waypoint
       [25.8850, 91.8720], // 4: Umling Highway Rest Stop
       [25.7920, 91.8890], // 5: Umsning Expressway Node
       [25.6840, 91.9020], // 6: Umiam Lake Bridge
@@ -54,13 +57,12 @@ export const CORRIDORS = {
       [24.9950, 92.4980], // 19: Gumra Valley
       [24.9750, 92.5420], // 20: Kalain River Causeway
       [24.9250, 92.6250], // 21: Bhaga Interchange
-      [24.8720, 92.7120], // 22: Silchar North Outskirts
-      [24.8333, 92.7789]  // 23: Silchar District Civil Hospital (Destination)
+      [24.83297, 92.77909]  // 22: Silchar District Civil Hospital
     ],
     vulnerabilities: ['Sonapur Mudslides', 'Heavy Monsoon Inundation', 'Slope Incline Shear']
   },
 
-  // ROUTE B — AI Safe Alternate (Dense 24 Waypoints via Umrangso Bedrock)
+  // ROUTE B — AI Safe Alternate (Real High-Density 3500 Road Coordinates via Umrangso Bedrock)
   ROUTE_B: {
     id: 'corridor-route-b',
     code: 'ROUTE_B',
@@ -73,8 +75,9 @@ export const CORRIDORS = {
     baseRiskScore: 14,
     criticalChokePoint: 'Umrangso Ridge (Reinforced Rock Formation)',
     vulnerabilityProfile: 'Stable basalt bedrock; all-weather culverts and bypass bridges',
-    waypoints: [
-      [26.1445, 91.7362], // 0: Guwahati Central Depot
+    waypoints: REAL_ROAD_POLYLINES.ROUTE_B,
+    checkpoints: [
+      [26.11586, 91.8016], // 0: Khanapara Depot
       [26.1150, 91.8420], // 1: Khanapara East
       [26.1620, 91.9540], // 2: Sonapur Assam Expressway
       [26.1820, 92.0540], // 3: Jagiroad Paper Mill Crossing
@@ -97,12 +100,12 @@ export const CORRIDORS = {
       [25.0120, 92.7820], // 20: Bandarkhal Causeway
       [24.9450, 92.7750], // 21: Damcherra Approach
       [24.8850, 92.7680], // 22: Silchar North Gate
-      [24.8333, 92.7789]  // 23: Silchar District Civil Hospital
+      [24.83297, 92.77909]  // 23: Silchar District Civil Hospital
     ],
     vulnerabilities: ['Occasional Heavy Morning Fog at Ridge']
   },
 
-  // ROUTE B DIVERSION — Mid-Corridor Connector from Jowai across to Umrangso onto Route B (Dense 24 Points)
+  // ROUTE B DIVERSION — Mid-Corridor Connector from Jowai across to Umrangso onto Route B (Real High-Density 3500 Points)
   ROUTE_B_DIVERSION: {
     id: 'corridor-route-b-div',
     code: 'ROUTE_B_DIVERSION',
@@ -112,7 +115,8 @@ export const CORRIDORS = {
     distanceStr: '326 km bypass',
     normalDuration: '7h 55m',
     baseRiskScore: 15,
-    waypoints: [
+    waypoints: REAL_ROAD_POLYLINES.ROUTE_B_DIVERSION,
+    checkpoints: [
       [26.1445, 91.7362], // 0: Guwahati Depot
       [26.0820, 91.8020], // 1: Khanapara
       [26.0120, 91.8450], // 2: Jorabat
