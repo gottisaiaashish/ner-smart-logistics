@@ -285,61 +285,7 @@ export const CORRIDORS = {
   }
 };
 
-export const DISASTER_ZONES = [
-  {
-    id: 'zone-flood-brahmaputra',
-    type: 'FLOOD',
-    name: 'Brahmaputra Lowland Inundation Zone',
-    severity: 'WARNING',
-    riskScore: 78,
-    riverLevel: '+2.85m above danger mark',
-    polygon: [
-      [26.25, 91.50],
-      [26.38, 92.10],
-      [26.45, 92.90],
-      [26.28, 93.15],
-      [26.10, 92.70],
-      [26.08, 91.80]
-    ],
-    color: '#0284c7',
-    fillColor: '#0284c7',
-    fillOpacity: 0.28
-  },
-  {
-    id: 'zone-landslide-sonapur',
-    type: 'LANDSLIDE',
-    name: 'Sonapur-Khliehriat Critical Landslide Hotspot',
-    severity: 'CRITICAL',
-    riskScore: 92,
-    rainfallRate: '46.4 mm/hr (Heavy Torrential)',
-    polygon: [
-      [25.19, 92.25],
-      [25.26, 92.42],
-      [25.05, 92.48],
-      [24.98, 92.32]
-    ],
-    color: '#f43f5e',
-    fillColor: '#e11d48',
-    fillOpacity: 0.38
-  },
-  {
-    id: 'zone-flood-barak',
-    type: 'FLOOD',
-    name: 'Barak River Basin Inundation Zone',
-    severity: 'ELEVATED',
-    riskScore: 68,
-    riverLevel: '+1.40m over baseline',
-    polygon: [
-      [24.92, 92.60],
-      [24.98, 92.85],
-      [24.78, 92.92],
-      [24.72, 92.68]
-    ],
-    color: '#0ea5e9',
-    fillColor: '#0ea5e9',
-    fillOpacity: 0.22
-  }
-];
+export const DISASTER_ZONES = [];
 
 export const RIVER_GAUGES = [
   { id: 'gauge-sonapur', name: 'Sonapur River Gauge Stn 04', corridor: 'NH-6', lat: 25.1120, lng: 92.3850, dangerMark: 14.5, currentLevel: 16.22, unit: 'm', status: 'DANGER' },

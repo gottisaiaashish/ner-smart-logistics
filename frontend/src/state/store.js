@@ -10,7 +10,7 @@ import { REAL_ROAD_POLYLINES } from '../data/real-road-polylines.js';
 import { socketClient } from './socket-client.js';
 import { sounds } from '../audio/sound-effects.js';
 
-const STORAGE_KEY = 'NER_LOGISTICS_STATE_V2';
+const STORAGE_KEY = 'NER_LOGISTICS_STATE_V3';
 
 export const USER_ROLES = {
   CONTROL_ROOM: 'CONTROL_ROOM',
@@ -346,7 +346,7 @@ class Store {
     }
 
     // Default Fresh Environment State
-    const defaultEnv = { ...SCENARIO_PRESETS.HEAVY_MONSOON.env };
+    const defaultEnv = { ...SCENARIO_PRESETS.NORMAL.env };
 
     const initialVehicles = JSON.parse(JSON.stringify(INITIAL_VEHICLES));
     const initialAlerts = JSON.parse(JSON.stringify(INITIAL_ALERTS));
@@ -356,7 +356,7 @@ class Store {
 
     const stateObj = {
       currentUser: null,
-      activeScenarioPreset: 'HEAVY_MONSOON',
+      activeScenarioPreset: 'NORMAL',
       environment: defaultEnv,
       environmentLastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       
